@@ -233,12 +233,13 @@
           - created_file_stat.stat.gid == initial_sshd_stat.stat.gid
 
     - name: Check whether nginx is available
-      ansible.builtin.stat:
-        path: /usr/sbin/nginx
+      ansible.builtin.command: nginx -v
+      changed_when: false
+      failed_when: false
       register: nginx_binary
 
     - name: Exercise application-level validation
-      when: nginx_binary.stat.executable | default(false)
+      when: nginx_binary.rc == 0
       block:
         - name: Create a standalone nginx configuration
           ansible.builtin.copy:
@@ -261,7 +262,7 @@
               http:
                 gzip: "off"
             state: merged
-            validate: /usr/sbin/nginx -t -c %s
+            validate: nginx -t -c %s
           register: nginx_validated
 
         - name: Reject an nginx setting that its lens permits
@@ -272,7 +273,7 @@
               http:
                 gzip: sometimes
             state: merged
-            validate: /usr/sbin/nginx -t -c %s
+            validate: nginx -t -c %s
           register: nginx_rejected
           ignore_errors: true
 

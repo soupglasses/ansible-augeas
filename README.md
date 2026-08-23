@@ -64,10 +64,29 @@ The collection requires ansible-core 2.18 or newer:
 ansible-galaxy collection install soupglasses.augeas
 ```
 
-Each managed node also needs Augeas, its lenses, and `python-augeas` 1.2.0 or
+Each managed node also needs Augeas, its lenses, and `python-augeas` 1.0.3 or
 newer. Common Debian package names are `augeas-lenses`, `libaugeas0`, and
 `python3-augeas`; common Fedora package names are `augeas-libs` and
-`python3-augeas`. Package names and included lenses vary by distribution.
+`python3-augeas`.
+
+On macOS, install Augeas with Homebrew, then install the binding for the Python
+interpreter used by Ansible:
+
+```shell
+brew install augeas
+AUGEAS_PREFIX="$(brew --prefix augeas)"
+CFLAGS="-I${AUGEAS_PREFIX}/include" LDFLAGS="-L${AUGEAS_PREFIX}/lib" \
+  python3 -m pip install "python-augeas>=1.0.3"
+```
+
+FreeBSD 15 and newer provide both dependencies as packages:
+
+```shell
+pkg install augeas py311-python-augeas
+```
+
+Package names and included lenses vary by operating system. CI runs the unit,
+lens, and integration suites on Linux, macOS, and FreeBSD 15.
 
 Execution environment dependency metadata is included under [`meta/`](meta/).
 
@@ -244,7 +263,7 @@ the same `%s` placeholder convention as `ansible.builtin.copy`:
       http:
         gzip: "off"
     state: merged
-    validate: /usr/sbin/nginx -t -c %s
+    validate: nginx -t -c %s
 ```
 
 The command runs without a shell. A failed validator leaves the managed file

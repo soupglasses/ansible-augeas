@@ -19,6 +19,7 @@ Minor Changes
 - Add declarative merged, replaced, deleted, and gathered resource states.
 - Add executable before, task, and after examples for 109 stock-lens cases.
 - Add standard Ansible file attributes alongside Augeas configuration state.
+- Add tested macOS and FreeBSD 15 support, including both python-augeas CFFI layouts.
 
 New Modules
 -----------
