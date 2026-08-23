@@ -1,0 +1,11 @@
+*.py[cod]
+*.retry
+*.tar.gz
+__pycache__/
+.ansible/
+.agents/
+.codex/
+.pytest_cache/
+.ruff_cache/
+changelogs/.plugin-cache.yaml
+tests/output/

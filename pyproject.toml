@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+

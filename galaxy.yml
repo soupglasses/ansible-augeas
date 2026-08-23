@@ -1,0 +1,30 @@
+namespace: soupglasses
+name: augeas
+version: 1.0.0
+readme: README.md
+authors:
+  - Sofie Finnes <sofie+git@finnes.dev>
+description: Declaratively manage configuration files through Augeas resource semantics.
+license:
+  - GPL-3.0-or-later
+tags:
+  - augeas
+  - configuration
+  - linux
+  - resource
+dependencies: {}
+repository: https://github.com/soupglasses/ansible-augeas
+documentation: https://github.com/soupglasses/ansible-augeas#readme
+homepage: https://github.com/soupglasses/ansible-augeas
+issues: https://github.com/soupglasses/ansible-augeas/issues
+build_ignore:
+  - .agents
+  - .codex
+  - .git
+  - .gitignore
+  - .github
+  - .pytest_cache
+  - .ruff_cache
+  - changelogs/.plugin-cache.yaml
+  - changelogs/fragments
+  - tests/output

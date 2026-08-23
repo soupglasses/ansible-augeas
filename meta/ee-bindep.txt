@@ -1,0 +1,5 @@
+augeas-lenses [platform:dpkg]
+libaugeas-dev [platform:dpkg compile]
+libaugeas0 [platform:dpkg]
+augeas-devel [platform:rpm compile]
+augeas-libs [platform:rpm]
