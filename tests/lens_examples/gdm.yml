@@ -1,0 +1,15 @@
+name: Enable GDM automatic login
+lens: Gdm
+file: /etc/gdm/custom.conf
+before: |
+  [daemon]
+  AutomaticLoginEnable=false
+  AutomaticLogin=alice
+task:
+  config:
+    daemon:
+      AutomaticLoginEnable: "true"
+after: |
+  [daemon]
+  AutomaticLoginEnable=true
+  AutomaticLogin=alice

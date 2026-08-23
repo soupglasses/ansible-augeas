@@ -1,0 +1,15 @@
+name: Change an integer in a TOML table
+lens: Toml
+file: /etc/app/config.toml
+before: |
+  [server]
+  port = 8080
+  debug = false
+task:
+  path: 'table[.="server"]/entry[.="port"]/integer'
+  config:
+    $value: "9090"
+after: |
+  [server]
+  port = 9090
+  debug = false

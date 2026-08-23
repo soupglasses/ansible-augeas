@@ -1,0 +1,11 @@
+name: Change a numeric value in a JSON configuration
+lens: Json
+file: /etc/app/config.json
+before: |
+  {"server":{"port":8080,"debug":false}}
+task:
+  path: 'dict/entry[.="server"]/dict/entry[.="port"]/number'
+  config:
+    $value: "9090"
+after: |
+  {"server":{"port":9090,"debug":false}}

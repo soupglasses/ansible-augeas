@@ -1,0 +1,14 @@
+name: Change a tinc VPN interface
+lens: Tinc
+file: /etc/tinc/net/tinc.conf
+before: |
+  Name = node1
+  AddressFamily = ipv4
+  Interface = tun0
+task:
+  config:
+    Interface: tun1
+after: |
+  Name = node1
+  AddressFamily = ipv4
+  Interface = tun1

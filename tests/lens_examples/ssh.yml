@@ -1,0 +1,15 @@
+name: Increase the SSH client keepalive interval
+lens: Ssh
+file: /etc/ssh/ssh_config
+before: |
+  Host *
+      ServerAliveInterval 30
+      HashKnownHosts yes
+task:
+  path: 'Host[.="*"]'
+  config:
+    ServerAliveInterval: "60"
+after: |
+  Host *
+      ServerAliveInterval 60
+      HashKnownHosts yes

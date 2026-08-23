@@ -1,0 +1,11 @@
+name: Redirect an rsyslog selector
+lens: Rsyslog
+file: /etc/rsyslog.conf
+before: |
+  *.info /var/log/messages
+task:
+  path: entry/action/file
+  config:
+    $value: /var/log/system.log
+after: |
+  *.info /var/log/system.log

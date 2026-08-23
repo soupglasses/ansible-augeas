@@ -1,0 +1,17 @@
+name: Enable find_multipaths
+lens: Multipath
+file: /etc/multipath.conf
+before: |
+  defaults {
+    user_friendly_names yes
+    find_multipaths no
+  }
+task:
+  config:
+    defaults:
+      find_multipaths: "yes"
+after: |
+  defaults {
+    user_friendly_names yes
+    find_multipaths yes
+  }

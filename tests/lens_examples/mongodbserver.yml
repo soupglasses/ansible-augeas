@@ -1,0 +1,14 @@
+name: Change a MongoDB server port
+lens: MongoDBServer
+file: /etc/mongodb.conf
+before: |
+  dbpath=/var/lib/mongodb
+  port=27017
+  bind_ip=127.0.0.1
+task:
+  config:
+    port: "27018"
+after: |
+  dbpath=/var/lib/mongodb
+  port=27018
+  bind_ip=127.0.0.1

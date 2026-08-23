@@ -1,0 +1,19 @@
+name: Raise the xinetd instance limit
+lens: Xinetd
+file: /etc/xinetd.conf
+before: |
+  defaults
+  {
+    instances = 60
+    log_type = SYSLOG authpriv
+  }
+task:
+  config:
+    defaults:
+      instances: "100"
+after: |
+  defaults
+  {
+    instances = 100
+    log_type = SYSLOG authpriv
+  }

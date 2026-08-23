@@ -1,0 +1,11 @@
+name: Set a local password maximum age
+lens: Shadow
+file: /etc/shadow
+before: |
+  app:!:20000:0:99999:7:::
+task:
+  config:
+    app:
+      maxage_days: "90"
+after: |
+  app:!:20000:0:90:7:::

@@ -1,0 +1,11 @@
+name: Change a Debian repository distribution
+lens: Aptsources
+file: /etc/apt/sources.list
+before: |
+  deb http://deb.debian.org/debian bookworm main
+task:
+  path: "1"
+  config:
+    distribution: trixie
+after: |
+  deb http://deb.debian.org/debian trixie main

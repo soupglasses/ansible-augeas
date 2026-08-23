@@ -1,0 +1,15 @@
+name: Move an OpenVPN server to TCP 443
+lens: OpenVPN
+file: /etc/openvpn/server.conf
+before: |
+  port 1194
+  proto udp
+  dev tun
+task:
+  config:
+    port: "443"
+    proto: tcp-server
+after: |
+  port 443
+  proto tcp-server
+  dev tun

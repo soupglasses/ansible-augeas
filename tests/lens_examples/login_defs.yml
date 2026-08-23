@@ -1,0 +1,14 @@
+name: Tighten the default login umask
+lens: Login_defs
+file: /etc/login.defs
+before: |
+  PASS_MAX_DAYS 99999
+  PASS_MIN_DAYS 0
+  UMASK 022
+task:
+  config:
+    UMASK: "027"
+after: |
+  PASS_MAX_DAYS 99999
+  PASS_MIN_DAYS 0
+  UMASK 027

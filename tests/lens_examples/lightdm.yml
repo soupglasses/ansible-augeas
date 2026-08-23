@@ -1,0 +1,15 @@
+name: Change the LightDM automatic-login account
+lens: Lightdm
+file: /etc/lightdm/lightdm.conf
+before: |
+  [Seat:*]
+  autologin-user=alice
+  autologin-user-timeout=0
+task:
+  config:
+    'Seat:*':
+      autologin-user: kiosk
+after: |
+  [Seat:*]
+  autologin-user=kiosk
+  autologin-user-timeout=0

@@ -1,0 +1,13 @@
+name: Change the mdadm notification address
+lens: Mdadm_conf
+file: /etc/mdadm.conf
+before: |
+  DEVICE partitions
+  MAILADDR root@example.test
+task:
+  config:
+    mailaddr:
+      value: storage@example.test
+after: |
+  DEVICE partitions
+  MAILADDR storage@example.test

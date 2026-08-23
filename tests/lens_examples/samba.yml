@@ -1,0 +1,15 @@
+name: Change the Samba workgroup
+lens: Samba
+file: /etc/samba/smb.conf
+before: |
+  [global]
+    workgroup = WORKGROUP
+    server string = File Server
+task:
+  path: 'target[.="global"]'
+  config:
+    workgroup: EXAMPLE
+after: |
+  [global]
+    workgroup = EXAMPLE
+    server string = File Server

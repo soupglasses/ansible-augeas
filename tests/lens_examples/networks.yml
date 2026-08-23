@@ -1,0 +1,13 @@
+name: Change a named network number
+lens: Networks
+file: /etc/networks
+before: |
+  default 0.0.0.0
+  corp 192.0.2.0
+task:
+  path: "2"
+  config:
+    number: 198.51.100.0
+after: |
+  default 0.0.0.0
+  corp 198.51.100.0

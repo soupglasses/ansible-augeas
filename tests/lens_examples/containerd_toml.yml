@@ -1,0 +1,17 @@
+name: Change the containerd metrics address
+lens: Toml
+file: /etc/containerd/config.toml
+before: |
+  version = 2
+
+  [metrics]
+  address = "127.0.0.1:1338"
+task:
+  path: 'table[.="metrics"]/entry[.="address"]/string'
+  config:
+    $value: 0.0.0.0:1338
+after: |
+  version = 2
+
+  [metrics]
+  address = "0.0.0.0:1338"

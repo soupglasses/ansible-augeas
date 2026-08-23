@@ -1,0 +1,21 @@
+name: Set a NetworkManager connection to manual IPv4
+lens: NetworkManager
+file: /etc/NetworkManager/system-connections/app.nmconnection
+before: |
+  [connection]
+  id=app
+  type=ethernet
+
+  [ipv4]
+  method=auto
+task:
+  config:
+    ipv4:
+      method: manual
+after: |
+  [connection]
+  id=app
+  type=ethernet
+
+  [ipv4]
+  method=manual

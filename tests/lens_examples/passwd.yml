@@ -1,0 +1,11 @@
+name: Disable interactive login for a service account
+lens: Passwd
+file: /etc/passwd
+before: |
+  app:x:1000:1000:App User:/srv/app:/bin/bash
+task:
+  config:
+    app:
+      shell: /usr/sbin/nologin
+after: |
+  app:x:1000:1000:App User:/srv/app:/usr/sbin/nologin

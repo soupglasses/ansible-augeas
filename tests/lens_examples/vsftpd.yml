@@ -1,0 +1,14 @@
+name: Enable local FTP uploads
+lens: Vsftpd
+file: /etc/vsftpd.conf
+before: |
+  anonymous_enable=NO
+  local_enable=YES
+  write_enable=NO
+task:
+  config:
+    write_enable: "YES"
+after: |
+  anonymous_enable=NO
+  local_enable=YES
+  write_enable=YES

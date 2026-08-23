@@ -1,0 +1,17 @@
+name: Change an LDIF attribute
+lens: Ldif
+file: /etc/ldap/example.ldif
+before: |
+  dn: dc=example,dc=test
+  objectClass: top
+  objectClass: domain
+  dc: example
+task:
+  path: "@content/1"
+  config:
+    dc: corp
+after: |
+  dn: dc=example,dc=test
+  objectClass: top
+  objectClass: domain
+  dc: corp

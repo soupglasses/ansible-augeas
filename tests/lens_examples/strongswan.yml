@@ -1,0 +1,17 @@
+name: Reduce the strongSwan worker count
+lens: Strongswan
+file: /etc/strongswan.conf
+before: |
+  charon {
+    threads = 16
+    load_modular = yes
+  }
+task:
+  config:
+    charon:
+      threads: "8"
+after: |
+  charon {
+    threads = 8
+    load_modular = yes
+  }

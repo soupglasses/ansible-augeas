@@ -1,0 +1,13 @@
+name: Change an NTP server without losing its options
+lens: Ntp
+file: /etc/ntp.conf
+before: |
+  driftfile /var/lib/ntp/drift
+  server time1.example.test iburst
+task:
+  path: server
+  config:
+    $value: time2.example.test
+after: |
+  driftfile /var/lib/ntp/drift
+  server time2.example.test iburst

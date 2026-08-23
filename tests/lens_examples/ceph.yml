@@ -1,0 +1,15 @@
+name: Change the Ceph monitor address
+lens: Ceph
+file: /etc/ceph/ceph.conf
+before: |
+  [global]
+  mon host = 192.0.2.10
+  auth supported = cephx
+task:
+  config:
+    global:
+      mon host: 192.0.2.20
+after: |
+  [global]
+  mon host = 192.0.2.20
+  auth supported = cephx

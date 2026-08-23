@@ -1,0 +1,15 @@
+name: Change a scalar in the stock YAML subset
+lens: Yaml
+file: /etc/app/config.yaml
+before: |
+  server:
+    port: 8080
+    debug: false
+task:
+  config:
+    server:
+      port: "9090"
+after: |
+  server:
+    port: 9090
+    debug: false

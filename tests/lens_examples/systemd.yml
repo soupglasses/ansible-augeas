@@ -1,0 +1,16 @@
+name: Make a systemd service always restart
+lens: Systemd
+file: /etc/systemd/system/app.service
+before: |
+  [Service]
+  Restart=on-failure
+  TimeoutStopSec=30
+task:
+  config:
+    Service:
+      Restart:
+        value: always
+after: |
+  [Service]
+  Restart=always
+  TimeoutStopSec=30

@@ -1,0 +1,15 @@
+name: Change the advertised Avahi host name
+lens: Avahi
+file: /etc/avahi/avahi-daemon.conf
+before: |
+  [server]
+  host-name=app-old
+  use-ipv6=yes
+task:
+  config:
+    server:
+      host-name: app-new
+after: |
+  [server]
+  host-name=app-new
+  use-ipv6=yes

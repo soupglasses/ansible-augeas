@@ -1,0 +1,11 @@
+name: Change the Docker daemon log driver
+lens: Json
+file: /etc/docker/daemon.json
+before: |
+  {"log-driver":"json-file","log-opts":{"max-size":"10m"}}
+task:
+  path: 'dict/entry[.="log-driver"]/string'
+  config:
+    $value: journald
+after: |
+  {"log-driver":"journald","log-opts":{"max-size":"10m"}}

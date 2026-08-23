@@ -1,0 +1,13 @@
+name: Change an XML attribute without losing element text
+lens: Xml
+file: /etc/xml/example.xml
+before: |
+  <config><database host="localhost">app</database></config>
+task:
+  config:
+    config:
+      database:
+        "#attribute":
+          host: db.example.test
+after: |
+  <config><database host="db.example.test">app</database></config>

@@ -1,0 +1,12 @@
+name: Change the kdump output directory
+lens: Kdump
+file: /etc/kdump.conf
+before: |
+  path /var/crash
+  core_collector makedumpfile -c
+task:
+  config:
+    path: /srv/crash
+after: |
+  path /srv/crash
+  core_collector makedumpfile -c

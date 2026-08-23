@@ -1,0 +1,15 @@
+name: Raise the PHP memory limit
+lens: PHP
+file: /etc/php.ini
+before: |
+  [PHP]
+  memory_limit = 128M
+  max_execution_time = 30
+task:
+  config:
+    PHP:
+      memory_limit: 256M
+after: |
+  [PHP]
+  memory_limit = 256M
+  max_execution_time = 30

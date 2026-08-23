@@ -1,0 +1,13 @@
+name: Shorten the Monit polling interval
+lens: Monit
+file: /etc/monitrc
+before: |
+  set daemon 120
+  set logfile /var/log/monit.log
+task:
+  path: set[daemon]
+  config:
+    daemon: "60"
+after: |
+  set daemon 60
+  set logfile /var/log/monit.log

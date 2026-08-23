@@ -1,0 +1,11 @@
+name: Narrow a TCP Wrappers client network
+lens: Hosts_Access
+file: /etc/hosts.allow
+before: |
+  sshd: 192.0.2.0/255.255.255.0
+task:
+  path: "1/client"
+  config:
+    $value: 192.0.2.128
+after: |
+  sshd: 192.0.2.128/255.255.255.0

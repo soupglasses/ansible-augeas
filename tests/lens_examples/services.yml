@@ -1,0 +1,13 @@
+name: Change a named service port
+lens: Services
+file: /etc/services
+before: |
+  ssh 22/tcp
+  http 80/tcp www
+task:
+  path: 'service-name[.="http"]'
+  config:
+    port: "8080"
+after: |
+  ssh 22/tcp
+  http 8080/tcp www

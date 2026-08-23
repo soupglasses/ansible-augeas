@@ -1,0 +1,12 @@
+name: Start discovered iSCSI nodes automatically
+lens: Iscsid
+file: /etc/iscsi/iscsid.conf
+before: |
+  node.startup = manual
+  node.session.timeo.replacement_timeout = 120
+task:
+  config:
+    node.startup: automatic
+after: |
+  node.startup = automatic
+  node.session.timeo.replacement_timeout = 120

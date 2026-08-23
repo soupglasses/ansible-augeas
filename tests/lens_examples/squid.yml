@@ -1,0 +1,12 @@
+name: Change the Squid visible host name
+lens: Squid
+file: /etc/squid/squid.conf
+before: |
+  http_port 3128
+  visible_hostname proxy-old
+task:
+  config:
+    visible_hostname: proxy-new
+after: |
+  http_port 3128
+  visible_hostname proxy-new

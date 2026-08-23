@@ -1,0 +1,13 @@
+name: Enable CUPS printer browsing
+lens: Cups
+file: /etc/cups/cupsd.conf
+before: |
+  Listen localhost:631
+  Browsing Off
+task:
+  path: 'directive[.="Browsing"]/arg'
+  config:
+    $value: "On"
+after: |
+  Listen localhost:631
+  Browsing On

@@ -1,0 +1,12 @@
+name: Limit enabled Dovecot protocols
+lens: Dovecot
+file: /etc/dovecot/dovecot.conf
+before: |
+  protocols = imap pop3
+  listen = *
+task:
+  config:
+    protocols: imap lmtp
+after: |
+  protocols = imap lmtp
+  listen = *

@@ -1,0 +1,14 @@
+name: Change the Redis listen port
+lens: Redis
+file: /etc/redis/redis.conf
+before: |
+  bind 127.0.0.1
+  port 6379
+  timeout 0
+task:
+  config:
+    port: "6380"
+after: |
+  bind 127.0.0.1
+  port 6380
+  timeout 0

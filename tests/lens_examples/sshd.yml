@@ -1,0 +1,17 @@
+name: Disable SSH root and password login
+lens: Sshd
+file: /etc/ssh/sshd_config
+before: |
+  Port 22
+  PermitRootLogin yes
+  PasswordAuthentication yes
+  UsePAM yes
+task:
+  config:
+    PermitRootLogin: "no"
+    PasswordAuthentication: "no"
+after: |
+  Port 22
+  PermitRootLogin no
+  PasswordAuthentication no
+  UsePAM yes

@@ -1,0 +1,310 @@
+---
+- name: Exercise the Augeas resource module
+  block:
+    - name: Create a temporary test directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ansible-augeas-
+      register: augeas_test_tmp
+
+    - name: Create the test sshd configuration
+      ansible.builtin.copy:
+        dest: "{{ augeas_test_tmp.path }}/sshd_config"
+        mode: "0600"
+        content: |
+          # Integration test fixture
+          Port 22
+          PermitRootLogin yes
+          AcceptEnv LANG LC_CTYPE
+          AcceptEnv LC_ALL
+          Subsystem sftp /usr/lib/openssh/sftp-server
+
+          Match User deploy
+            X11Forwarding yes
+            PasswordAuthentication yes
+
+    - name: Record the test file ownership
+      ansible.builtin.stat:
+        path: "{{ augeas_test_tmp.path }}/sshd_config"
+      register: initial_sshd_stat
+
+    - name: Gather the initial tree
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/sshd_config"
+        lens: Sshd
+        state: gathered
+      register: gathered
+
+    - name: Assert repeated nodes were gathered in order
+      ansible.builtin.assert:
+        that:
+          - not gathered.changed
+          - "{'AcceptEnv': ['LANG', 'LC_CTYPE']} in gathered.gathered['$children']"
+          - "{'AcceptEnv': ['LC_ALL']} in gathered.gathered['$children']"
+
+    - name: Check a merge without writing
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/sshd_config"
+        lens: Sshd
+        config:
+          PermitRootLogin: "no"
+        state: merged
+      check_mode: true
+      diff: true
+      register: checked
+
+    - name: Assert check mode produced a structured diff
+      ansible.builtin.assert:
+        that:
+          - checked.changed
+          - checked.diff[0].before != checked.diff[0].after
+
+    - name: Merge a setting
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/sshd_config"
+        lens: Sshd
+        config:
+          PermitRootLogin: "no"
+        state: merged
+      register: merged
+
+    - name: Repeat the merge
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/sshd_config"
+        lens: Sshd
+        config:
+          PermitRootLogin: "no"
+        state: merged
+      register: merged_again
+
+    - name: Assert merge idempotence
+      ansible.builtin.assert:
+        that:
+          - merged.changed
+          - not merged_again.changed
+
+    - name: Correct file metadata without changing the Augeas tree
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/sshd_config"
+        lens: Sshd
+        owner: "{{ initial_sshd_stat.stat.uid }}"
+        group: "{{ initial_sshd_stat.stat.gid }}"
+        mode: "0640"
+        config:
+          PermitRootLogin: "no"
+        state: merged
+      diff: true
+      register: metadata_corrected
+
+    - name: Reapply the same file metadata
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/sshd_config"
+        lens: Sshd
+        owner: "{{ initial_sshd_stat.stat.uid }}"
+        group: "{{ initial_sshd_stat.stat.gid }}"
+        mode: "0640"
+        config:
+          PermitRootLogin: "no"
+        state: merged
+      register: metadata_reapplied
+
+    - name: Check the corrected file metadata
+      ansible.builtin.stat:
+        path: "{{ augeas_test_tmp.path }}/sshd_config"
+      register: corrected_sshd_stat
+
+    - name: Assert file metadata is declarative and idempotent
+      ansible.builtin.assert:
+        that:
+          - metadata_corrected.changed
+          - metadata_corrected.before == metadata_corrected.after
+          - metadata_corrected.diff[0].before.mode == '0600'
+          - metadata_corrected.diff[0].after.mode == '0640'
+          - not metadata_reapplied.changed
+          - corrected_sshd_stat.stat.mode == '0640'
+          - corrected_sshd_stat.stat.uid == initial_sshd_stat.stat.uid
+          - corrected_sshd_stat.stat.gid == initial_sshd_stat.stat.gid
+
+    - name: Replace a selected Match block
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/sshd_config"
+        lens: Sshd
+        path: 'Match[Condition/User="deploy"]'
+        config:
+          Condition:
+            User: deploy
+          Settings:
+            X11Forwarding: "no"
+        state: replaced
+      register: replaced
+
+    - name: Delete repeated AcceptEnv nodes
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/sshd_config"
+        lens: Sshd
+        config:
+          AcceptEnv: null
+        state: deleted
+      register: deleted
+
+    - name: Assert replacements and deletion changed the file
+      ansible.builtin.assert:
+        that:
+          - replaced.changed
+          - deleted.changed
+          - replaced.after.Settings.X11Forwarding == 'no'
+
+    - name: Check metadata after tasks that omit file attributes
+      ansible.builtin.stat:
+        path: "{{ augeas_test_tmp.path }}/sshd_config"
+      register: preserved_sshd_stat
+
+    - name: Assert omitted file attributes remain unmanaged
+      ansible.builtin.assert:
+        that:
+          - preserved_sshd_stat.stat.mode == '0640'
+
+    - name: Create the test hosts file
+      ansible.builtin.copy:
+        dest: "{{ augeas_test_tmp.path }}/hosts"
+        mode: "0600"
+        content: |
+          127.0.0.1 localhost localhost.localdomain
+          192.0.2.10 app.example.test app
+
+    - name: Gather positional host records
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/hosts"
+        lens: Hosts
+        state: gathered
+      register: hosts_gathered
+
+    - name: Reapply gathered host records
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/hosts"
+        lens: Hosts
+        config: "{{ hosts_gathered.gathered }}"
+        state: replaced
+      register: hosts_replaced
+
+    - name: Assert positional records round trip unchanged
+      ansible.builtin.assert:
+        that:
+          - hosts_gathered.gathered | type_debug == 'list'
+          - hosts_gathered.gathered[1].canonical == 'app.example.test'
+          - not hosts_replaced.changed
+
+    - name: Create a configuration with explicit file attributes
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/created.conf"
+        lens: Simplevars
+        owner: "{{ initial_sshd_stat.stat.uid }}"
+        group: "{{ initial_sshd_stat.stat.gid }}"
+        mode: "0640"
+        config:
+          ENABLED: "yes"
+        state: merged
+      register: file_created
+
+    - name: Reapply the newly created configuration
+      soupglasses.augeas.augeas:
+        file: "{{ augeas_test_tmp.path }}/created.conf"
+        lens: Simplevars
+        owner: "{{ initial_sshd_stat.stat.uid }}"
+        group: "{{ initial_sshd_stat.stat.gid }}"
+        mode: "0640"
+        config:
+          ENABLED: "yes"
+        state: merged
+      register: file_created_again
+
+    - name: Check the created file metadata
+      ansible.builtin.stat:
+        path: "{{ augeas_test_tmp.path }}/created.conf"
+      register: created_file_stat
+
+    - name: Assert missing-file creation honors declared metadata
+      ansible.builtin.assert:
+        that:
+          - file_created.changed
+          - not file_created_again.changed
+          - created_file_stat.stat.mode == '0640'
+          - created_file_stat.stat.uid == initial_sshd_stat.stat.uid
+          - created_file_stat.stat.gid == initial_sshd_stat.stat.gid
+
+    - name: Check whether nginx is available
+      ansible.builtin.stat:
+        path: /usr/sbin/nginx
+      register: nginx_binary
+
+    - name: Exercise application-level validation
+      when: nginx_binary.stat.executable | default(false)
+      block:
+        - name: Create a standalone nginx configuration
+          ansible.builtin.copy:
+            dest: "{{ augeas_test_tmp.path }}/nginx.conf"
+            mode: "0600"
+            content: |
+              error_log stderr;
+              pid /tmp/ansible-augeas-nginx.pid;
+              events {}
+              http {
+                access_log off;
+                gzip on;
+              }
+
+        - name: Merge an nginx setting with native validation
+          soupglasses.augeas.augeas:
+            file: "{{ augeas_test_tmp.path }}/nginx.conf"
+            lens: Nginx
+            config:
+              http:
+                gzip: "off"
+            state: merged
+            validate: /usr/sbin/nginx -t -c %s
+          register: nginx_validated
+
+        - name: Reject an nginx setting that its lens permits
+          soupglasses.augeas.augeas:
+            file: "{{ augeas_test_tmp.path }}/nginx.conf"
+            lens: Nginx
+            config:
+              http:
+                gzip: sometimes
+            state: merged
+            validate: /usr/sbin/nginx -t -c %s
+          register: nginx_rejected
+          ignore_errors: true
+
+        - name: Gather nginx after rejected validation
+          soupglasses.augeas.augeas:
+            file: "{{ augeas_test_tmp.path }}/nginx.conf"
+            lens: Nginx
+            state: gathered
+          register: nginx_after_rejection
+
+        - name: Check for a leaked Augeas candidate
+          ansible.builtin.stat:
+            path: "{{ augeas_test_tmp.path }}/nginx.conf.augnew"
+          register: nginx_candidate
+
+        - name: Check the validated file metadata
+          ansible.builtin.stat:
+            path: "{{ augeas_test_tmp.path }}/nginx.conf"
+          register: nginx_config
+
+        - name: Assert nginx validation and rollback behavior
+          ansible.builtin.assert:
+            that:
+              - nginx_validated.changed
+              - nginx_rejected is failed
+              - nginx_after_rejection.gathered.http.gzip == 'off'
+              - not nginx_candidate.stat.exists
+              - nginx_config.stat.mode == '0600'
+
+  always:
+    - name: Remove the test sshd configuration
+      ansible.builtin.file:
+        path: "{{ augeas_test_tmp.path }}"
+        state: absent
+      when: augeas_test_tmp is defined

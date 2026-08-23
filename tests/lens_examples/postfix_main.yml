@@ -1,0 +1,12 @@
+name: Expose Postfix on all interfaces
+lens: Postfix_Main
+file: /etc/postfix/main.cf
+before: |
+  myhostname = mail.example.test
+  inet_interfaces = loopback-only
+task:
+  config:
+    inet_interfaces: all
+after: |
+  myhostname = mail.example.test
+  inet_interfaces = all

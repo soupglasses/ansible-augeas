@@ -1,0 +1,17 @@
+name: Select the Xorg AMD GPU driver
+lens: Xorg
+file: /etc/X11/xorg.conf
+before: |
+  Section "Device"
+    Identifier "GPU0"
+    Driver "modesetting"
+  EndSection
+task:
+  config:
+    Device:
+      Driver: amdgpu
+after: |
+  Section "Device"
+    Identifier "GPU0"
+    Driver "amdgpu"
+  EndSection

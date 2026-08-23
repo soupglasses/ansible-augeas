@@ -1,0 +1,17 @@
+name: Change the NSLCD LDAP server
+lens: Nslcd
+file: /etc/nslcd.conf
+before: |
+  uid nslcd
+  gid nslcd
+  uri ldap://ldap-old.example.test
+  base dc=example,dc=test
+task:
+  path: uri/1
+  config:
+    $value: ldaps://ldap-new.example.test
+after: |
+  uid nslcd
+  gid nslcd
+  uri ldaps://ldap-new.example.test
+  base dc=example,dc=test

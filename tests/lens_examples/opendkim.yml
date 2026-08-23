@@ -1,0 +1,14 @@
+name: Change the OpenDKIM local socket
+lens: OpenDkim
+file: /etc/opendkim.conf
+before: |
+  Syslog yes
+  Mode sv
+  Socket local:/run/opendkim/opendkim.sock
+task:
+  config:
+    Socket: local:/run/opendkim/milter.sock
+after: |
+  Syslog yes
+  Mode sv
+  Socket local:/run/opendkim/milter.sock

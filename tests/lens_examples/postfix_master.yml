@@ -1,0 +1,13 @@
+name: Disable Postfix smtpd chrooting
+lens: Postfix_Master
+file: /etc/postfix/master.cf
+before: |
+  smtp inet n - y - - smtpd
+  pickup unix n - y 60 1 pickup
+task:
+  config:
+    smtp:
+      chroot: "n"
+after: |
+  smtp inet n - n - - smtpd
+  pickup unix n - y 60 1 pickup

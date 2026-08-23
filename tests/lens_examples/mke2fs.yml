@@ -1,0 +1,15 @@
+name: Change the default ext filesystem block size
+lens: Mke2fs
+file: /etc/mke2fs.conf
+before: |
+  [defaults]
+  base_features = sparse_super,filetype,resize_inode
+  blocksize = 4096
+task:
+  config:
+    defaults:
+      blocksize: "8192"
+after: |
+  [defaults]
+  base_features = sparse_super,filetype,resize_inode
+  blocksize = 8192

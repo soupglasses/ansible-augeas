@@ -1,0 +1,15 @@
+name: Select the SSSD domain
+lens: Sssd
+file: /etc/sssd/sssd.conf
+before: |
+  [sssd]
+  services = nss, pam
+  domains = old.example
+task:
+  path: 'target[.="sssd"]'
+  config:
+    domains: corp.example
+after: |
+  [sssd]
+  services = nss, pam
+  domains = corp.example

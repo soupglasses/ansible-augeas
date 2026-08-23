@@ -1,0 +1,19 @@
+name: Enable LVM discard requests
+lens: LVM
+file: /etc/lvm/lvm.conf
+before: |
+  devices {
+    dir = "/dev"
+    issue_discards = 0
+  }
+task:
+  config:
+    devices:
+      dict:
+        issue_discards:
+          int: "1"
+after: |
+  devices {
+    dir = "/dev"
+    issue_discards = 1
+  }

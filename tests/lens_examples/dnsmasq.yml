@@ -1,0 +1,14 @@
+name: Increase the dnsmasq cache size
+lens: Dnsmasq
+file: /etc/dnsmasq.conf
+before: |
+  domain-needed
+  cache-size=150
+  server=192.0.2.53
+task:
+  config:
+    cache-size: "1000"
+after: |
+  domain-needed
+  cache-size=1000
+  server=192.0.2.53

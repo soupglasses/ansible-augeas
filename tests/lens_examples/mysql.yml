@@ -1,0 +1,15 @@
+name: Raise the MySQL connection limit
+lens: MySQL
+file: /etc/mysql/my.cnf
+before: |
+  [mysqld]
+  bind-address = 127.0.0.1
+  max_connections = 100
+task:
+  path: 'target[.="mysqld"]'
+  config:
+    max_connections: "200"
+after: |
+  [mysqld]
+  bind-address = 127.0.0.1
+  max_connections = 200

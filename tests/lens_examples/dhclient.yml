@@ -1,0 +1,14 @@
+name: Shorten the DHCP client timeout
+lens: Dhclient
+file: /etc/dhcp/dhclient.conf
+before: |
+  timeout 60;
+  retry 60;
+  send host-name = gethostname();
+task:
+  config:
+    timeout: "30"
+after: |
+  timeout 30;
+  retry 60;
+  send host-name = gethostname();

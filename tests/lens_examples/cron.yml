@@ -1,0 +1,14 @@
+name: Move a system cron job to 03:00
+lens: Cron
+file: /etc/crontab
+before: |
+  SHELL=/bin/sh
+  0 2 * * * root /usr/local/bin/backup
+task:
+  path: 'entry[.="/usr/local/bin/backup"]'
+  config:
+    time:
+      hour: "3"
+after: |
+  SHELL=/bin/sh
+  0 3 * * * root /usr/local/bin/backup

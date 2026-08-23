@@ -1,0 +1,12 @@
+name: Reduce virtual-memory swapping
+lens: Sysctl
+file: /etc/sysctl.conf
+before: |
+  net.ipv4.ip_forward = 0
+  vm.swappiness = 60
+task:
+  config:
+    vm.swappiness: "10"
+after: |
+  net.ipv4.ip_forward = 0
+  vm.swappiness = 10

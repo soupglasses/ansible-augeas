@@ -1,0 +1,19 @@
+name: Add noatime to an existing mount
+lens: Fstab
+file: /etc/fstab
+before: |
+  /dev/sda1 / ext4 defaults 0 1
+task:
+  path: "1"
+  state: replaced
+  config:
+    $children:
+      - spec: /dev/sda1
+      - file: /
+      - vfstype: ext4
+      - opt: defaults
+      - opt: noatime
+      - dump: "0"
+      - passno: "1"
+after: |
+  /dev/sda1 / ext4 defaults,noatime 0 1

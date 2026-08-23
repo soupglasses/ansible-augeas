@@ -1,0 +1,17 @@
+name: Update several SSH key restrictions without managing comments
+lens: Authorized_Keys
+file: /root/.ssh/authorized_keys
+before: |
+  from="192.0.2.0/24" ssh-ed25519 AAAAC3NzaAlice alice@laptop
+  command="echo old" ssh-ed25519 AAAAC3NzaBob bob@desktop
+task:
+  config:
+    'key[.="AAAAC3NzaBob"]':
+      options:
+        command: echo restricted
+    'key[.="AAAAC3NzaAlice"]':
+      options:
+        from: 198.51.100.0/24
+after: |
+  from="198.51.100.0/24" ssh-ed25519 AAAAC3NzaAlice alice@laptop
+  command="echo restricted" ssh-ed25519 AAAAC3NzaBob bob@desktop

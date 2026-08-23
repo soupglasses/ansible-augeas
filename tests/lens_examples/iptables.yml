@@ -1,0 +1,17 @@
+name: Change a persisted iptables SSH rule
+lens: Iptables
+file: /etc/iptables-save
+before: |
+  *filter
+  :INPUT DROP [0:0]
+  -A INPUT -p tcp --dport 22 -j ACCEPT
+  COMMIT
+task:
+  path: 'table[.="filter"]/append[.="INPUT"]'
+  config:
+    dport: "2222"
+after: |
+  *filter
+  :INPUT DROP [0:0]
+  -A INPUT -p tcp --dport 2222 -j ACCEPT
+  COMMIT

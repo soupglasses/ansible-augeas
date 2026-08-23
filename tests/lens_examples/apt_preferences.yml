@@ -1,0 +1,15 @@
+name: Raise an APT pin priority
+lens: AptPreferences
+file: /etc/apt/preferences
+before: |
+  Package: *
+  Pin: release a=stable
+  Pin-Priority: 500
+task:
+  path: "1"
+  config:
+    Pin-Priority: "700"
+after: |
+  Package: *
+  Pin: release a=stable
+  Pin-Priority: 700

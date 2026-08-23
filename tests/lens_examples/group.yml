@@ -1,0 +1,11 @@
+name: Change a local group identifier
+lens: Group
+file: /etc/group
+before: |
+  app:x:1000:alice,bob
+task:
+  config:
+    app:
+      gid: "2000"
+after: |
+  app:x:2000:alice,bob

@@ -1,0 +1,13 @@
+name: Add an SSH authorized key by its native Augeas identity
+lens: Authorized_Keys
+file: /root/.ssh/authorized_keys
+before: |
+  ssh-ed25519 AAAAC3NzaAlice alice@laptop
+task:
+  config:
+    'key[.="AAAAC3NzaCarol"]':
+      $value: AAAAC3NzaCarol
+      type: ssh-ed25519
+after: |
+  ssh-ed25519 AAAAC3NzaAlice alice@laptop
+  ssh-ed25519 AAAAC3NzaCarol

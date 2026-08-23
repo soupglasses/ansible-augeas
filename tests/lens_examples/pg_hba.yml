@@ -1,0 +1,13 @@
+name: Change a PostgreSQL host rule authentication method
+lens: Pg_Hba
+file: /etc/postgresql/16/main/pg_hba.conf
+before: |
+  local all all peer
+  host all all 127.0.0.1/32 scram-sha-256
+task:
+  path: "2"
+  config:
+    method: md5
+after: |
+  local all all peer
+  host all all 127.0.0.1/32 md5

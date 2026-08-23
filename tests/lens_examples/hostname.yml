@@ -1,0 +1,10 @@
+name: Set the static host name
+lens: Hostname
+file: /etc/hostname
+before: |
+  old.example.test
+task:
+  config:
+    hostname: new.example.test
+after: |
+  new.example.test

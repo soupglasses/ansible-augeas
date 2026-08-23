@@ -1,0 +1,11 @@
+name: Disable waiting for an inetd service
+lens: Inetd
+file: /etc/inetd.conf
+before: |
+  ftp stream tcp wait root /usr/sbin/tcpd in.ftpd
+task:
+  path: 'service[.="ftp"]'
+  config:
+    wait: nowait
+after: |
+  ftp stream tcp nowait root /usr/sbin/tcpd in.ftpd

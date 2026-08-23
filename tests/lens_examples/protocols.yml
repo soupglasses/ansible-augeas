@@ -1,0 +1,13 @@
+name: Rename a private protocol alias
+lens: Protocols
+file: /etc/protocols
+before: |
+  tcp 6 TCP
+  myproto 253 OLDPROTO
+task:
+  path: "2"
+  config:
+    alias: MYPROTO
+after: |
+  tcp 6 TCP
+  myproto 253 MYPROTO

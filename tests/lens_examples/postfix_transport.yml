@@ -1,0 +1,11 @@
+name: Change a Postfix transport relay
+lens: Postfix_Transport
+file: /etc/postfix/transport
+before: |
+  example.test smtp:[mail-old.example.test]
+task:
+  path: 'pattern[.="example.test"]'
+  config:
+    nexthop: '[mail-new.example.test]'
+after: |
+  example.test smtp:[mail-new.example.test]

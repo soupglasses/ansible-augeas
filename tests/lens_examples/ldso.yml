@@ -1,0 +1,13 @@
+name: Change a dynamic-linker search path
+lens: LdSo
+file: /etc/ld.so.conf
+before: |
+  include /etc/ld.so.conf.d/*.conf
+  /usr/local/lib
+task:
+  path: path
+  config:
+    $value: /opt/app/lib
+after: |
+  include /etc/ld.so.conf.d/*.conf
+  /opt/app/lib

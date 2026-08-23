@@ -1,0 +1,11 @@
+name: Increase an autofs map timeout
+lens: Automaster
+file: /etc/auto.master
+before: |
+  /home /etc/auto.home --timeout=60
+task:
+  path: "1/opt/value"
+  config:
+    $value: "120"
+after: |
+  /home /etc/auto.home --timeout=120

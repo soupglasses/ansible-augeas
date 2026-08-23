@@ -1,0 +1,15 @@
+name: Prefer systemd-resolved for host lookups
+lens: Nsswitch
+file: /etc/nsswitch.conf
+before: |
+  passwd: files systemd
+  group: files systemd
+  hosts: files dns
+task:
+  path: 'database[.="hosts"]/service[2]'
+  config:
+    $value: resolve
+after: |
+  passwd: files systemd
+  group: files systemd
+  hosts: files resolve

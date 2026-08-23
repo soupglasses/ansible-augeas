@@ -1,0 +1,11 @@
+name: Change a DNS A record
+lens: Dns_Zone
+file: /etc/bind/db.example.test
+before: |
+  www 300 IN A 192.0.2.10
+task:
+  path: www/1
+  config:
+    rdata: 192.0.2.20
+after: |
+  www 300 IN A 192.0.2.20

@@ -1,0 +1,11 @@
+name: Redirect classic syslog messages
+lens: Syslog
+file: /etc/syslog.conf
+before: |
+  *.info /var/log/messages
+task:
+  path: entry/action/file
+  config:
+    $value: /var/log/system.log
+after: |
+  *.info /var/log/system.log

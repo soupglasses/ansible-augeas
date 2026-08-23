@@ -1,0 +1,15 @@
+name: Change the PgBouncer listen port
+lens: Pgbouncer
+file: /etc/pgbouncer/pgbouncer.ini
+before: |
+  [pgbouncer]
+  listen_addr = 127.0.0.1
+  listen_port = 6432
+task:
+  config:
+    pgbouncer:
+      listen_port: "7432"
+after: |
+  [pgbouncer]
+  listen_addr = 127.0.0.1
+  listen_port = 7432

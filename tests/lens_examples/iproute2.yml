@@ -1,0 +1,14 @@
+name: Rename a policy-routing table
+lens: Iproute2
+file: /etc/iproute2/rt_tables
+before: |
+  255 local
+  254 main
+  100 app-old
+task:
+  config:
+    100: app-new
+after: |
+  255 local
+  254 main
+  100 app-new

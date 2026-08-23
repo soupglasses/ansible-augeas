@@ -1,0 +1,13 @@
+name: Change the Apache server-token policy
+lens: Httpd
+file: /etc/apache2/apache2.conf
+before: |
+  Listen 80
+  ServerTokens Prod
+task:
+  path: 'directive[.="ServerTokens"]'
+  config:
+    arg: Full
+after: |
+  Listen 80
+  ServerTokens Full

@@ -1,0 +1,13 @@
+name: Change a Chrony time source
+lens: Chrony
+file: /etc/chrony.conf
+before: |
+  server time.example.test iburst
+  makestep 1.0 3
+task:
+  path: server
+  config:
+    $value: time2.example.test
+after: |
+  server time2.example.test iburst
+  makestep 1.0 3

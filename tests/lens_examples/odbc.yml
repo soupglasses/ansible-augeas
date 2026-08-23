@@ -1,0 +1,17 @@
+name: Change an ODBC database server
+lens: Odbc
+file: /etc/odbc.ini
+before: |
+  [app]
+  Driver = PostgreSQL
+  Servername = db-old.example.test
+  Port = 5432
+task:
+  config:
+    app:
+      Servername: db-new.example.test
+after: |
+  [app]
+  Driver = PostgreSQL
+  Servername = db-new.example.test
+  Port = 5432

@@ -1,0 +1,12 @@
+name: Enable a Java-style properties feature flag
+lens: Properties
+file: /etc/app.properties
+before: |
+  server.port=8080
+  feature.enabled=false
+task:
+  config:
+    feature.enabled: "true"
+after: |
+  server.port=8080
+  feature.enabled=true

@@ -1,0 +1,23 @@
+name: Change a static interface address
+lens: Interfaces
+file: /etc/network/interfaces
+before: |
+  auto lo
+  iface lo inet loopback
+
+  auto eth0
+  iface eth0 inet static
+    address 192.0.2.10
+    netmask 255.255.255.0
+task:
+  path: 'iface[.="eth0"]'
+  config:
+    address: 192.0.2.20
+after: |
+  auto lo
+  iface lo inet loopback
+
+  auto eth0
+  iface eth0 inet static
+    address 192.0.2.20
+    netmask 255.255.255.0

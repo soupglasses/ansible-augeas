@@ -1,0 +1,13 @@
+name: Add a kernel module to load at boot
+lens: Modules
+file: /etc/modules
+before: |
+  loop
+  kvm_intel
+task:
+  config:
+    vfio: null
+after: |
+  loop
+  kvm_intel
+  vfio

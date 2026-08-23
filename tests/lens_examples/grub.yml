@@ -1,0 +1,18 @@
+name: Change the default legacy GRUB menu entry
+lens: Grub
+file: /boot/grub/menu.lst
+before: |
+  default 0
+  timeout 5
+  title Linux
+    root (hd0,0)
+    kernel /vmlinuz ro
+task:
+  config:
+    default: "1"
+after: |
+  default 1
+  timeout 5
+  title Linux
+    root (hd0,0)
+    kernel /vmlinuz ro

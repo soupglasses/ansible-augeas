@@ -1,0 +1,11 @@
+name: Narrow an NFS export client network
+lens: Exports
+file: /etc/exports
+before: |
+  /srv/share 192.0.2.0/24(rw,sync)
+task:
+  path: 'dir[.="/srv/share"]/client'
+  config:
+    $value: 192.0.2.0/25
+after: |
+  /srv/share 192.0.2.0/25(rw,sync)

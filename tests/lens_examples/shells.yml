@@ -1,0 +1,13 @@
+name: Replace an allowed login shell
+lens: Shells
+file: /etc/shells
+before: |
+  /bin/sh
+  /bin/bash
+task:
+  path: "2"
+  config:
+    $value: /usr/bin/zsh
+after: |
+  /bin/sh
+  /usr/bin/zsh

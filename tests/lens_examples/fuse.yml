@@ -1,0 +1,12 @@
+name: Raise the FUSE mount limit
+lens: Fuse
+file: /etc/fuse.conf
+before: |
+  mount_max = 1000
+  user_allow_other
+task:
+  config:
+    mount_max: "2000"
+after: |
+  mount_max = 2000
+  user_allow_other

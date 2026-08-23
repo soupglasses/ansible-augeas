@@ -1,0 +1,13 @@
+name: Change the collectd host name
+lens: Collectd
+file: /etc/collectd.conf
+before: |
+  Hostname "app-old"
+  Interval 10
+task:
+  path: 'directive[.="Hostname"]/arg'
+  config:
+    $value: '"app-new"'
+after: |
+  Hostname "app-new"
+  Interval 10

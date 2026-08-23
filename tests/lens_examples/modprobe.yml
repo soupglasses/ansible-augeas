@@ -1,0 +1,13 @@
+name: Enable nested virtualization
+lens: Modprobe
+file: /etc/modprobe.d/kvm.conf
+before: |
+  options kvm_intel nested=0
+  blacklist pcspkr
+task:
+  path: 'options[.="kvm_intel"]'
+  config:
+    nested: "1"
+after: |
+  options kvm_intel nested=1
+  blacklist pcspkr

@@ -1,0 +1,13 @@
+name: Enable mail for bad sudo password attempts
+lens: Sudoers
+file: /etc/sudoers
+before: |
+  Defaults env_reset
+  root ALL=(ALL:ALL) ALL
+task:
+  config:
+    Defaults:
+      mail_badpass: null
+after: |
+  Defaults env_reset , mail_badpass
+  root ALL=(ALL:ALL) ALL

@@ -1,0 +1,15 @@
+name: Disable Kerberos DNS KDC discovery
+lens: Krb5
+file: /etc/krb5.conf
+before: |
+  [libdefaults]
+    default_realm = EXAMPLE.COM
+    dns_lookup_kdc = true
+task:
+  config:
+    libdefaults:
+      dns_lookup_kdc: "false"
+after: |
+  [libdefaults]
+    default_realm = EXAMPLE.COM
+    dns_lookup_kdc = false

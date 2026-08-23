@@ -1,0 +1,27 @@
+name: Disable gzip inside an nginx HTTP block
+lens: Nginx
+file: /etc/nginx/nginx.conf
+before: |
+  http {
+    server {
+      listen 80;
+      location / {
+        root html;
+      }
+    }
+    gzip on;
+  }
+task:
+  config:
+    http:
+      gzip: "off"
+after: |
+  http {
+    server {
+      listen 80;
+      location / {
+        root html;
+      }
+    }
+    gzip off;
+  }

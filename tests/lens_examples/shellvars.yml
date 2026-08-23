@@ -1,0 +1,12 @@
+name: Change an application port in an environment file
+lens: Shellvars
+file: /etc/default/app
+before: |
+  ENABLED="yes"
+  PORT=8080
+task:
+  config:
+    PORT: "9090"
+after: |
+  ENABLED="yes"
+  PORT=9090

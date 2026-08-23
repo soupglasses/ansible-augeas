@@ -1,0 +1,15 @@
+name: Retain downloaded Yum packages
+lens: Yum
+file: /etc/yum.conf
+before: |
+  [main]
+  cachedir=/var/cache/yum
+  keepcache=0
+task:
+  config:
+    main:
+      keepcache: "1"
+after: |
+  [main]
+  cachedir=/var/cache/yum
+  keepcache=1

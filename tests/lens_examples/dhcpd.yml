@@ -1,0 +1,12 @@
+name: Extend the DHCP default lease time
+lens: Dhcpd
+file: /etc/dhcp/dhcpd.conf
+before: |
+  default-lease-time 600;
+  max-lease-time 7200;
+task:
+  config:
+    default-lease-time: "1200"
+after: |
+  default-lease-time 1200;
+  max-lease-time 7200;

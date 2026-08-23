@@ -1,0 +1,15 @@
+name: Increase the Fail2ban ban time
+lens: Fail2ban
+file: /etc/fail2ban/jail.local
+before: |
+  [DEFAULT]
+  bantime = 600
+  findtime = 600
+task:
+  config:
+    DEFAULT:
+      bantime: "3600"
+after: |
+  [DEFAULT]
+  bantime = 3600
+  findtime = 600

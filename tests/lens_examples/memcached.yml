@@ -1,0 +1,14 @@
+name: Increase the Memcached memory limit
+lens: Memcached
+file: /etc/memcached.conf
+before: |
+  -m 64
+  -p 11211
+  -l 127.0.0.1
+task:
+  config:
+    m: "128"
+after: |
+  -m 128
+  -p 11211
+  -l 127.0.0.1

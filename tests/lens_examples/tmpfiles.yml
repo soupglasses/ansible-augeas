@@ -1,0 +1,11 @@
+name: Restrict a systemd-tmpfiles directory mode
+lens: Tmpfiles
+file: /etc/tmpfiles.d/myapp.conf
+before: |
+  d /run/myapp 0755 root root -
+task:
+  path: "1"
+  config:
+    mode: "0700"
+after: |
+  d /run/myapp 0700 root root -

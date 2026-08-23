@@ -1,0 +1,11 @@
+name: Change a Postfix virtual alias destination
+lens: Postfix_Virtual
+file: /etc/postfix/virtual
+before: |
+  info@example.test user-old@example.test
+task:
+  path: 'pattern[.="info@example.test"]'
+  config:
+    destination: user-new@example.test
+after: |
+  info@example.test user-new@example.test

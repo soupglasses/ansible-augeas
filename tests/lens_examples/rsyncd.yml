@@ -1,0 +1,17 @@
+name: Enable writes to an rsync module
+lens: Rsyncd
+file: /etc/rsyncd.conf
+before: |
+  uid = nobody
+  [backup]
+  path = /srv/backup
+  read only = yes
+task:
+  config:
+    backup:
+      read only: "no"
+after: |
+  uid = nobody
+  [backup]
+  path = /srv/backup
+  read only = no

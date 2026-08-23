@@ -1,0 +1,11 @@
+name: Configure a crypttab key file
+lens: Crypttab
+file: /etc/crypttab
+before: |
+  cryptroot UUID=1234-5678 none luks,discard
+task:
+  path: "1"
+  config:
+    password: /root/cryptroot.key
+after: |
+  cryptroot UUID=1234-5678 /root/cryptroot.key luks,discard

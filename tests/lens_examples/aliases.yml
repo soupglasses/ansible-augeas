@@ -1,0 +1,13 @@
+name: Change the root mail alias
+lens: Aliases
+file: /etc/aliases
+before: |
+  root: admin@example.test
+  postmaster: root
+task:
+  path: "1"
+  config:
+    value: ops@example.test
+after: |
+  root: ops@example.test
+  postmaster: root

@@ -1,0 +1,12 @@
+name: Raise the PostgreSQL connection limit
+lens: Postgresql
+file: /etc/postgresql/16/main/postgresql.conf
+before: |
+  listen_addresses = 'localhost'
+  max_connections = 100
+task:
+  config:
+    max_connections: "200"
+after: |
+  listen_addresses = 'localhost'
+  max_connections = 200

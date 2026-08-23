@@ -1,0 +1,13 @@
+name: Make the first PAM authentication rule requisite
+lens: Pam
+file: /etc/pam.d/login
+before: |
+  auth required pam_unix.so
+  session optional pam_motd.so
+task:
+  path: "1"
+  config:
+    control: requisite
+after: |
+  auth requisite pam_unix.so
+  session optional pam_motd.so

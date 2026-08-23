@@ -1,0 +1,19 @@
+name: Retain more application log rotations
+lens: Logrotate
+file: /etc/logrotate.d/app
+before: |
+  /var/log/app/*.log {
+    daily
+    rotate 7
+    compress
+  }
+task:
+  path: rule
+  config:
+    rotate: "14"
+after: |
+  /var/log/app/*.log {
+    daily
+    rotate 14
+    compress
+  }

@@ -1,0 +1,13 @@
+name: Change the saved GRUB environment entry
+lens: GrubEnv
+file: /boot/grub/grubenv
+before: |
+  saved_entry=old
+  next_entry=
+task:
+  path: "1"
+  config:
+    value: new
+after: |
+  saved_entry=new
+  next_entry=

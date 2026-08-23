@@ -1,0 +1,12 @@
+name: Enable dynamic TuneD optimization
+lens: Tuned
+file: /etc/tuned/tuned-main.conf
+before: |
+  dynamic_tuning = 0
+  update_interval = 10
+task:
+  config:
+    dynamic_tuning: "1"
+after: |
+  dynamic_tuning = 1
+  update_interval = 10

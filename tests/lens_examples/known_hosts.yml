@@ -1,0 +1,11 @@
+name: Rotate a system SSH known-host key
+lens: Known_Hosts
+file: /etc/ssh/ssh_known_hosts
+before: |
+  git.example.test ssh-ed25519 AAAAOldHostKey
+task:
+  path: "1"
+  config:
+    key: AAAANewHostKey
+after: |
+  git.example.test ssh-ed25519 AAAANewHostKey

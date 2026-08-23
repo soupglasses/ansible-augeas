@@ -1,0 +1,12 @@
+name: Change the first DNS resolver
+lens: Resolv
+file: /etc/resolv.conf
+before: |
+  search example.test
+  nameserver 192.0.2.53
+task:
+  config:
+    nameserver: 192.0.2.54
+after: |
+  search example.test
+  nameserver 192.0.2.54

@@ -1,0 +1,16 @@
+name: Make apt assume yes
+lens: AptConf
+file: /etc/apt/apt.conf
+before: |
+  APT::Get::Assume-Yes "false";
+task:
+  config:
+    APT:
+      Get:
+        Assume-Yes: "true"
+after: |
+  APT {
+  Get {
+  Assume-Yes "true";
+  };
+  };
