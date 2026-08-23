@@ -82,7 +82,8 @@ CFLAGS="-I${AUGEAS_PREFIX}/include" LDFLAGS="-L${AUGEAS_PREFIX}/lib" \
 Package names and included lenses vary by operating system. CI runs the unit,
 lens, and integration suites on Linux and macOS.
 
-Execution environment dependency metadata is included under [`meta/`](meta/).
+Execution environment dependency metadata is included under
+[`meta/`](https://github.com/soupglasses/ansible-augeas/tree/main/meta).
 
 ## Choose a state
 
@@ -185,7 +186,7 @@ gathered:
     - AcceptEnv: [LC_ALL]
 ```
 
-See the [state and tree reference](docs/reference.md) for exact behavior at
+See the [state and tree reference](https://github.com/soupglasses/ansible-augeas/blob/main/docs/reference.md) for exact behavior at
 `path`, root-level deletion, node values, and repeated-node identity.
 
 ## Describe the Augeas tree in YAML
@@ -233,7 +234,7 @@ state: merged
 
 This updates the matching authorized key without managing its comment or its
 position. Adding a missing valued node needs both its Augeas selector and its
-`$value`; the [authorized-key example](tests/lens_examples/authorized_keys.yml)
+`$value`; the [authorized-key example](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/authorized_keys.yml)
 shows that case.
 
 Quote string-like values such as `"no"`, `"off"`, and `"yes"`. Ansible's YAML
@@ -283,9 +284,9 @@ for that syntax. Its stable output can differ from customary hand-written
 spacing or expand a shorthand form. This happens on the semantic change; the
 next identical run is idempotent.
 
-The [state and tree reference](docs/reference.md#formatting-and-lens-behavior)
+The [state and tree reference](https://github.com/soupglasses/ansible-augeas/blob/main/docs/reference.md#formatting-and-lens-behavior)
 describes this boundary. Internal save and reconciliation behavior is in the
-[design notes](docs/design.md).
+[design notes](https://github.com/soupglasses/ansible-augeas/blob/main/docs/design.md).
 
 ## Lens availability
 
@@ -340,112 +341,112 @@ currently tested with Augeas 1.14.1.
 
 | Lens | Example file | Executable example |
 | --- | --- | --- |
-| `Aliases` | `/etc/aliases` | [Change the root mail alias](tests/lens_examples/aliases.yml) |
-| `AptConf` | `/etc/apt/apt.conf` | [Make apt assume yes](tests/lens_examples/aptconf.yml) |
-| `AptPreferences` | `/etc/apt/preferences` | [Raise an APT pin priority](tests/lens_examples/apt_preferences.yml) |
-| `Aptsources` | `/etc/apt/sources.list` | [Change a Debian repository distribution](tests/lens_examples/apt_sources.yml) |
-| `Authorized_Keys` | `/root/.ssh/authorized_keys` | [Add a key safely](tests/lens_examples/authorized_keys.yml), [update restrictions without managing comments](tests/lens_examples/authorized_keys_options.yml) |
-| `Automaster` | `/etc/auto.master` | [Increase an autofs map timeout](tests/lens_examples/automaster.yml) |
-| `Avahi` | `/etc/avahi/avahi-daemon.conf` | [Change the advertised host name](tests/lens_examples/avahi.yml) |
-| `Ceph` | `/etc/ceph/ceph.conf` | [Change the monitor address](tests/lens_examples/ceph.yml) |
-| `Chrony` | `/etc/chrony.conf` | [Change a time source](tests/lens_examples/chrony.yml) |
-| `Collectd` | `/etc/collectd.conf` | [Change the collectd host name](tests/lens_examples/collectd.yml) |
-| `Cron` | `/etc/crontab` | [Move a system cron job](tests/lens_examples/cron.yml) |
-| `Crypttab` | `/etc/crypttab` | [Configure a key file](tests/lens_examples/crypttab.yml) |
-| `Cups` | `/etc/cups/cupsd.conf` | [Enable printer browsing](tests/lens_examples/cups.yml) |
-| `Dhclient` | `/etc/dhcp/dhclient.conf` | [Shorten the client timeout](tests/lens_examples/dhclient.yml) |
-| `Dhcpd` | `/etc/dhcp/dhcpd.conf` | [Extend the default lease time](tests/lens_examples/dhcpd.yml) |
-| `Dns_Zone` | `/etc/bind/db.example.test` | [Change an A record](tests/lens_examples/dns_zone.yml) |
-| `Dnsmasq` | `/etc/dnsmasq.conf` | [Increase the cache size](tests/lens_examples/dnsmasq.yml) |
-| `Dovecot` | `/etc/dovecot/dovecot.conf` | [Limit enabled protocols](tests/lens_examples/dovecot.yml) |
-| `Exports` | `/etc/exports` | [Narrow an NFS client network](tests/lens_examples/exports.yml) |
-| `Fail2ban` | `/etc/fail2ban/jail.local` | [Increase the ban time](tests/lens_examples/fail2ban.yml) |
-| `Fstab` | `/etc/fstab` | [Add a mount option](tests/lens_examples/fstab.yml) |
-| `Fuse` | `/etc/fuse.conf` | [Raise the mount limit](tests/lens_examples/fuse.yml) |
-| `Gdm` | `/etc/gdm/custom.conf` | [Enable automatic login](tests/lens_examples/gdm.yml) |
-| `Group` | `/etc/group` | [Change a local group ID](tests/lens_examples/group.yml) |
-| `Grub` | `/boot/grub/menu.lst` | [Change a legacy menu entry](tests/lens_examples/grub.yml) |
-| `GrubEnv` | `/boot/grub/grubenv` | [Change the saved entry](tests/lens_examples/grubenv.yml) |
-| `Hostname` | `/etc/hostname` | [Set the static host name](tests/lens_examples/hostname.yml) |
-| `Hosts` | `/etc/hosts` | [Change a host address](tests/lens_examples/hosts.yml) |
-| `Hosts_Access` | `/etc/hosts.allow` | [Narrow a client network](tests/lens_examples/hosts_access.yml) |
-| `Httpd` | `/etc/apache2/apache2.conf` | [Change the server-token policy](tests/lens_examples/httpd.yml) |
-| `Inetd` | `/etc/inetd.conf` | [Change a service wait policy](tests/lens_examples/inetd.yml) |
-| `Interfaces` | `/etc/network/interfaces` | [Change a static address](tests/lens_examples/interfaces.yml) |
-| `Iproute2` | `/etc/iproute2/rt_tables` | [Rename a routing table](tests/lens_examples/iproute2.yml) |
-| `Iptables` | `/etc/iptables-save` | [Change a persisted SSH rule](tests/lens_examples/iptables.yml) |
-| `Iscsid` | `/etc/iscsi/iscsid.conf` | [Start nodes automatically](tests/lens_examples/iscsid.yml) |
-| `Json` | JSON configuration | [Change a numeric value](tests/lens_examples/json.yml), [configure Docker](tests/lens_examples/docker_json.yml) |
-| `Kdump` | `/etc/kdump.conf` | [Change the output directory](tests/lens_examples/kdump.yml) |
-| `Keepalived` | `/etc/keepalived/keepalived.conf` | [Raise an instance priority](tests/lens_examples/keepalived.yml) |
-| `Known_Hosts` | `/etc/ssh/ssh_known_hosts` | [Rotate a host key](tests/lens_examples/known_hosts.yml) |
-| `Krb5` | `/etc/krb5.conf` | [Disable KDC DNS discovery](tests/lens_examples/krb5.yml) |
-| `Ldif` | `/etc/ldap/example.ldif` | [Change an LDIF attribute](tests/lens_examples/ldif.yml) |
-| `LdSo` | `/etc/ld.so.conf` | [Change a linker search path](tests/lens_examples/ldso.yml) |
-| `Lightdm` | `/etc/lightdm/lightdm.conf` | [Change the automatic-login account](tests/lens_examples/lightdm.yml) |
-| `Limits` | `/etc/security/limits.conf` | [Raise a file limit](tests/lens_examples/limits.yml) |
-| `Login_defs` | `/etc/login.defs` | [Tighten the default umask](tests/lens_examples/login_defs.yml) |
-| `Logrotate` | `/etc/logrotate.d/app` | [Retain more rotations](tests/lens_examples/logrotate.yml) |
-| `LVM` | `/etc/lvm/lvm.conf` | [Enable discard requests](tests/lens_examples/lvm.yml) |
-| `Mdadm_conf` | `/etc/mdadm.conf` | [Change the notification address](tests/lens_examples/mdadm.yml) |
-| `Memcached` | `/etc/memcached.conf` | [Increase the memory limit](tests/lens_examples/memcached.yml) |
-| `Mke2fs` | `/etc/mke2fs.conf` | [Change the default block size](tests/lens_examples/mke2fs.yml) |
-| `Modprobe` | `/etc/modprobe.d/kvm.conf` | [Enable nested virtualization](tests/lens_examples/modprobe.yml) |
-| `Modules` | `/etc/modules` | [Add a boot-time kernel module](tests/lens_examples/modules.yml) |
-| `MongoDBServer` | `/etc/mongodb.conf` | [Change the server port](tests/lens_examples/mongodbserver.yml) |
-| `Monit` | `/etc/monitrc` | [Shorten the polling interval](tests/lens_examples/monit.yml) |
-| `Multipath` | `/etc/multipath.conf` | [Enable `find_multipaths`](tests/lens_examples/multipath.yml) |
-| `MySQL` | `/etc/mysql/my.cnf` | [Raise the connection limit](tests/lens_examples/mysql.yml) |
-| `NetworkManager` | `/etc/NetworkManager/system-connections/app.nmconnection` | [Set manual IPv4](tests/lens_examples/networkmanager.yml) |
-| `Networks` | `/etc/networks` | [Change a network number](tests/lens_examples/networks.yml) |
-| `Nginx` | `/etc/nginx/nginx.conf` | [Disable HTTP gzip](tests/lens_examples/nginx.yml) |
-| `Nslcd` | `/etc/nslcd.conf` | [Change the LDAP server](tests/lens_examples/nslcd.yml) |
-| `Nsswitch` | `/etc/nsswitch.conf` | [Prefer systemd-resolved](tests/lens_examples/nsswitch.yml) |
-| `Ntp` | `/etc/ntp.conf` | [Change a server without losing options](tests/lens_examples/ntp.yml) |
-| `Odbc` | `/etc/odbc.ini` | [Change a database server](tests/lens_examples/odbc.yml) |
-| `OpenDkim` | `/etc/opendkim.conf` | [Change the local socket](tests/lens_examples/opendkim.yml) |
-| `OpenVPN` | `/etc/openvpn/server.conf` | [Move a server to TCP 443](tests/lens_examples/openvpn.yml) |
-| `Pam` | `/etc/pam.d/login` | [Change an authentication rule](tests/lens_examples/pam.yml) |
-| `Passwd` | `/etc/passwd` | [Disable interactive login](tests/lens_examples/passwd.yml) |
-| `Pg_Hba` | `/etc/postgresql/16/main/pg_hba.conf` | [Change an authentication method](tests/lens_examples/pg_hba.yml) |
-| `Pgbouncer` | `/etc/pgbouncer/pgbouncer.ini` | [Change the listen port](tests/lens_examples/pgbouncer.yml) |
-| `PHP` | `/etc/php.ini` | [Raise the memory limit](tests/lens_examples/php.yml) |
-| `Postfix_Main` | `/etc/postfix/main.cf` | [Expose Postfix on all interfaces](tests/lens_examples/postfix_main.yml) |
-| `Postfix_Master` | `/etc/postfix/master.cf` | [Disable smtpd chrooting](tests/lens_examples/postfix_master.yml) |
-| `Postfix_Transport` | `/etc/postfix/transport` | [Change a transport relay](tests/lens_examples/postfix_transport.yml) |
-| `Postfix_Virtual` | `/etc/postfix/virtual` | [Change a virtual destination](tests/lens_examples/postfix_virtual.yml) |
-| `Postgresql` | `/etc/postgresql/16/main/postgresql.conf` | [Raise the connection limit](tests/lens_examples/postgresql.yml) |
-| `Properties` | `/etc/app.properties` | [Enable a feature flag](tests/lens_examples/properties.yml) |
-| `Protocols` | `/etc/protocols` | [Rename a private protocol alias](tests/lens_examples/protocols.yml) |
-| `Redis` | `/etc/redis/redis.conf` | [Change the listen port](tests/lens_examples/redis.yml) |
-| `Resolv` | `/etc/resolv.conf` | [Change the first resolver](tests/lens_examples/resolv.yml) |
-| `Rsyncd` | `/etc/rsyncd.conf` | [Enable module writes](tests/lens_examples/rsyncd.yml) |
-| `Rsyslog` | `/etc/rsyslog.conf` | [Redirect a selector](tests/lens_examples/rsyslog.yml) |
-| `Samba` | `/etc/samba/smb.conf` | [Change the workgroup](tests/lens_examples/samba.yml) |
-| `Services` | `/etc/services` | [Change a named service port](tests/lens_examples/services.yml) |
-| `Shadow` | `/etc/shadow` | [Set a password maximum age](tests/lens_examples/shadow.yml) |
-| `Shells` | `/etc/shells` | [Replace an allowed shell](tests/lens_examples/shells.yml) |
-| `Shellvars` | `/etc/default/app` | [Change an environment-file port](tests/lens_examples/shellvars.yml) |
-| `Squid` | `/etc/squid/squid.conf` | [Change the visible host name](tests/lens_examples/squid.yml) |
-| `Ssh` | `/etc/ssh/ssh_config` | [Increase the client keepalive](tests/lens_examples/ssh.yml) |
-| `Sshd` | `/etc/ssh/sshd_config` | [Disable root and password login](tests/lens_examples/sshd.yml) |
-| `Sssd` | `/etc/sssd/sssd.conf` | [Select the SSSD domain](tests/lens_examples/sssd.yml) |
-| `Strongswan` | `/etc/strongswan.conf` | [Reduce the worker count](tests/lens_examples/strongswan.yml) |
-| `Stunnel` | `/etc/stunnel/stunnel.conf` | [Change a TLS backend](tests/lens_examples/stunnel.yml) |
-| `Sudoers` | `/etc/sudoers` | [Add a Defaults flag](tests/lens_examples/sudoers.yml) |
-| `Sysctl` | `/etc/sysctl.conf` | [Reduce virtual-memory swapping](tests/lens_examples/sysctl.yml) |
-| `Syslog` | `/etc/syslog.conf` | [Redirect classic syslog messages](tests/lens_examples/syslog.yml) |
-| `Systemd` | `/etc/systemd/system/app.service` | [Change the restart policy](tests/lens_examples/systemd.yml) |
-| `Tinc` | `/etc/tinc/net/tinc.conf` | [Change a VPN interface](tests/lens_examples/tinc.yml) |
-| `Tmpfiles` | `/etc/tmpfiles.d/myapp.conf` | [Restrict a directory mode](tests/lens_examples/tmpfiles.yml) |
-| `Toml` | TOML configuration | [Change a table integer](tests/lens_examples/toml.yml), [configure containerd](tests/lens_examples/containerd_toml.yml) |
-| `Tuned` | `/etc/tuned/tuned-main.conf` | [Enable dynamic optimization](tests/lens_examples/tuned.yml) |
-| `Vsftpd` | `/etc/vsftpd.conf` | [Enable local uploads](tests/lens_examples/vsftpd.yml) |
-| `Xinetd` | `/etc/xinetd.conf` | [Raise the instance limit](tests/lens_examples/xinetd.yml) |
-| `Xml` | `/etc/xml/example.xml` | [Change an attribute without losing text](tests/lens_examples/xml.yml) |
-| `Xorg` | `/etc/X11/xorg.conf` | [Select a GPU driver](tests/lens_examples/xorg.yml) |
-| `Yaml` | Supported YAML subset | [Change a scalar](tests/lens_examples/yaml.yml) |
-| `Yum` | `/etc/yum.conf` | [Retain downloaded packages](tests/lens_examples/yum.yml) |
+| `Aliases` | `/etc/aliases` | [Change the root mail alias](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/aliases.yml) |
+| `AptConf` | `/etc/apt/apt.conf` | [Make apt assume yes](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/aptconf.yml) |
+| `AptPreferences` | `/etc/apt/preferences` | [Raise an APT pin priority](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/apt_preferences.yml) |
+| `Aptsources` | `/etc/apt/sources.list` | [Change a Debian repository distribution](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/apt_sources.yml) |
+| `Authorized_Keys` | `/root/.ssh/authorized_keys` | [Add a key safely](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/authorized_keys.yml), [update restrictions without managing comments](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/authorized_keys_options.yml) |
+| `Automaster` | `/etc/auto.master` | [Increase an autofs map timeout](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/automaster.yml) |
+| `Avahi` | `/etc/avahi/avahi-daemon.conf` | [Change the advertised host name](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/avahi.yml) |
+| `Ceph` | `/etc/ceph/ceph.conf` | [Change the monitor address](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/ceph.yml) |
+| `Chrony` | `/etc/chrony.conf` | [Change a time source](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/chrony.yml) |
+| `Collectd` | `/etc/collectd.conf` | [Change the collectd host name](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/collectd.yml) |
+| `Cron` | `/etc/crontab` | [Move a system cron job](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/cron.yml) |
+| `Crypttab` | `/etc/crypttab` | [Configure a key file](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/crypttab.yml) |
+| `Cups` | `/etc/cups/cupsd.conf` | [Enable printer browsing](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/cups.yml) |
+| `Dhclient` | `/etc/dhcp/dhclient.conf` | [Shorten the client timeout](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/dhclient.yml) |
+| `Dhcpd` | `/etc/dhcp/dhcpd.conf` | [Extend the default lease time](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/dhcpd.yml) |
+| `Dns_Zone` | `/etc/bind/db.example.test` | [Change an A record](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/dns_zone.yml) |
+| `Dnsmasq` | `/etc/dnsmasq.conf` | [Increase the cache size](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/dnsmasq.yml) |
+| `Dovecot` | `/etc/dovecot/dovecot.conf` | [Limit enabled protocols](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/dovecot.yml) |
+| `Exports` | `/etc/exports` | [Narrow an NFS client network](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/exports.yml) |
+| `Fail2ban` | `/etc/fail2ban/jail.local` | [Increase the ban time](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/fail2ban.yml) |
+| `Fstab` | `/etc/fstab` | [Add a mount option](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/fstab.yml) |
+| `Fuse` | `/etc/fuse.conf` | [Raise the mount limit](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/fuse.yml) |
+| `Gdm` | `/etc/gdm/custom.conf` | [Enable automatic login](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/gdm.yml) |
+| `Group` | `/etc/group` | [Change a local group ID](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/group.yml) |
+| `Grub` | `/boot/grub/menu.lst` | [Change a legacy menu entry](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/grub.yml) |
+| `GrubEnv` | `/boot/grub/grubenv` | [Change the saved entry](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/grubenv.yml) |
+| `Hostname` | `/etc/hostname` | [Set the static host name](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/hostname.yml) |
+| `Hosts` | `/etc/hosts` | [Change a host address](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/hosts.yml) |
+| `Hosts_Access` | `/etc/hosts.allow` | [Narrow a client network](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/hosts_access.yml) |
+| `Httpd` | `/etc/apache2/apache2.conf` | [Change the server-token policy](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/httpd.yml) |
+| `Inetd` | `/etc/inetd.conf` | [Change a service wait policy](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/inetd.yml) |
+| `Interfaces` | `/etc/network/interfaces` | [Change a static address](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/interfaces.yml) |
+| `Iproute2` | `/etc/iproute2/rt_tables` | [Rename a routing table](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/iproute2.yml) |
+| `Iptables` | `/etc/iptables-save` | [Change a persisted SSH rule](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/iptables.yml) |
+| `Iscsid` | `/etc/iscsi/iscsid.conf` | [Start nodes automatically](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/iscsid.yml) |
+| `Json` | JSON configuration | [Change a numeric value](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/json.yml), [configure Docker](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/docker_json.yml) |
+| `Kdump` | `/etc/kdump.conf` | [Change the output directory](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/kdump.yml) |
+| `Keepalived` | `/etc/keepalived/keepalived.conf` | [Raise an instance priority](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/keepalived.yml) |
+| `Known_Hosts` | `/etc/ssh/ssh_known_hosts` | [Rotate a host key](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/known_hosts.yml) |
+| `Krb5` | `/etc/krb5.conf` | [Disable KDC DNS discovery](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/krb5.yml) |
+| `Ldif` | `/etc/ldap/example.ldif` | [Change an LDIF attribute](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/ldif.yml) |
+| `LdSo` | `/etc/ld.so.conf` | [Change a linker search path](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/ldso.yml) |
+| `Lightdm` | `/etc/lightdm/lightdm.conf` | [Change the automatic-login account](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/lightdm.yml) |
+| `Limits` | `/etc/security/limits.conf` | [Raise a file limit](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/limits.yml) |
+| `Login_defs` | `/etc/login.defs` | [Tighten the default umask](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/login_defs.yml) |
+| `Logrotate` | `/etc/logrotate.d/app` | [Retain more rotations](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/logrotate.yml) |
+| `LVM` | `/etc/lvm/lvm.conf` | [Enable discard requests](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/lvm.yml) |
+| `Mdadm_conf` | `/etc/mdadm.conf` | [Change the notification address](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/mdadm.yml) |
+| `Memcached` | `/etc/memcached.conf` | [Increase the memory limit](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/memcached.yml) |
+| `Mke2fs` | `/etc/mke2fs.conf` | [Change the default block size](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/mke2fs.yml) |
+| `Modprobe` | `/etc/modprobe.d/kvm.conf` | [Enable nested virtualization](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/modprobe.yml) |
+| `Modules` | `/etc/modules` | [Add a boot-time kernel module](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/modules.yml) |
+| `MongoDBServer` | `/etc/mongodb.conf` | [Change the server port](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/mongodbserver.yml) |
+| `Monit` | `/etc/monitrc` | [Shorten the polling interval](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/monit.yml) |
+| `Multipath` | `/etc/multipath.conf` | [Enable `find_multipaths`](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/multipath.yml) |
+| `MySQL` | `/etc/mysql/my.cnf` | [Raise the connection limit](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/mysql.yml) |
+| `NetworkManager` | `/etc/NetworkManager/system-connections/app.nmconnection` | [Set manual IPv4](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/networkmanager.yml) |
+| `Networks` | `/etc/networks` | [Change a network number](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/networks.yml) |
+| `Nginx` | `/etc/nginx/nginx.conf` | [Disable HTTP gzip](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/nginx.yml) |
+| `Nslcd` | `/etc/nslcd.conf` | [Change the LDAP server](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/nslcd.yml) |
+| `Nsswitch` | `/etc/nsswitch.conf` | [Prefer systemd-resolved](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/nsswitch.yml) |
+| `Ntp` | `/etc/ntp.conf` | [Change a server without losing options](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/ntp.yml) |
+| `Odbc` | `/etc/odbc.ini` | [Change a database server](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/odbc.yml) |
+| `OpenDkim` | `/etc/opendkim.conf` | [Change the local socket](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/opendkim.yml) |
+| `OpenVPN` | `/etc/openvpn/server.conf` | [Move a server to TCP 443](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/openvpn.yml) |
+| `Pam` | `/etc/pam.d/login` | [Change an authentication rule](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/pam.yml) |
+| `Passwd` | `/etc/passwd` | [Disable interactive login](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/passwd.yml) |
+| `Pg_Hba` | `/etc/postgresql/16/main/pg_hba.conf` | [Change an authentication method](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/pg_hba.yml) |
+| `Pgbouncer` | `/etc/pgbouncer/pgbouncer.ini` | [Change the listen port](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/pgbouncer.yml) |
+| `PHP` | `/etc/php.ini` | [Raise the memory limit](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/php.yml) |
+| `Postfix_Main` | `/etc/postfix/main.cf` | [Expose Postfix on all interfaces](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/postfix_main.yml) |
+| `Postfix_Master` | `/etc/postfix/master.cf` | [Disable smtpd chrooting](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/postfix_master.yml) |
+| `Postfix_Transport` | `/etc/postfix/transport` | [Change a transport relay](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/postfix_transport.yml) |
+| `Postfix_Virtual` | `/etc/postfix/virtual` | [Change a virtual destination](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/postfix_virtual.yml) |
+| `Postgresql` | `/etc/postgresql/16/main/postgresql.conf` | [Raise the connection limit](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/postgresql.yml) |
+| `Properties` | `/etc/app.properties` | [Enable a feature flag](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/properties.yml) |
+| `Protocols` | `/etc/protocols` | [Rename a private protocol alias](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/protocols.yml) |
+| `Redis` | `/etc/redis/redis.conf` | [Change the listen port](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/redis.yml) |
+| `Resolv` | `/etc/resolv.conf` | [Change the first resolver](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/resolv.yml) |
+| `Rsyncd` | `/etc/rsyncd.conf` | [Enable module writes](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/rsyncd.yml) |
+| `Rsyslog` | `/etc/rsyslog.conf` | [Redirect a selector](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/rsyslog.yml) |
+| `Samba` | `/etc/samba/smb.conf` | [Change the workgroup](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/samba.yml) |
+| `Services` | `/etc/services` | [Change a named service port](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/services.yml) |
+| `Shadow` | `/etc/shadow` | [Set a password maximum age](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/shadow.yml) |
+| `Shells` | `/etc/shells` | [Replace an allowed shell](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/shells.yml) |
+| `Shellvars` | `/etc/default/app` | [Change an environment-file port](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/shellvars.yml) |
+| `Squid` | `/etc/squid/squid.conf` | [Change the visible host name](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/squid.yml) |
+| `Ssh` | `/etc/ssh/ssh_config` | [Increase the client keepalive](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/ssh.yml) |
+| `Sshd` | `/etc/ssh/sshd_config` | [Disable root and password login](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/sshd.yml) |
+| `Sssd` | `/etc/sssd/sssd.conf` | [Select the SSSD domain](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/sssd.yml) |
+| `Strongswan` | `/etc/strongswan.conf` | [Reduce the worker count](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/strongswan.yml) |
+| `Stunnel` | `/etc/stunnel/stunnel.conf` | [Change a TLS backend](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/stunnel.yml) |
+| `Sudoers` | `/etc/sudoers` | [Add a Defaults flag](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/sudoers.yml) |
+| `Sysctl` | `/etc/sysctl.conf` | [Reduce virtual-memory swapping](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/sysctl.yml) |
+| `Syslog` | `/etc/syslog.conf` | [Redirect classic syslog messages](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/syslog.yml) |
+| `Systemd` | `/etc/systemd/system/app.service` | [Change the restart policy](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/systemd.yml) |
+| `Tinc` | `/etc/tinc/net/tinc.conf` | [Change a VPN interface](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/tinc.yml) |
+| `Tmpfiles` | `/etc/tmpfiles.d/myapp.conf` | [Restrict a directory mode](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/tmpfiles.yml) |
+| `Toml` | TOML configuration | [Change a table integer](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/toml.yml), [configure containerd](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/containerd_toml.yml) |
+| `Tuned` | `/etc/tuned/tuned-main.conf` | [Enable dynamic optimization](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/tuned.yml) |
+| `Vsftpd` | `/etc/vsftpd.conf` | [Enable local uploads](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/vsftpd.yml) |
+| `Xinetd` | `/etc/xinetd.conf` | [Raise the instance limit](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/xinetd.yml) |
+| `Xml` | `/etc/xml/example.xml` | [Change an attribute without losing text](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/xml.yml) |
+| `Xorg` | `/etc/X11/xorg.conf` | [Select a GPU driver](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/xorg.yml) |
+| `Yaml` | Supported YAML subset | [Change a scalar](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/yaml.yml) |
+| `Yum` | `/etc/yum.conf` | [Retain downloaded packages](https://github.com/soupglasses/ansible-augeas/blob/main/tests/lens_examples/yum.yml) |
 
 ## Module documentation
 
@@ -456,7 +457,7 @@ ansible-doc soupglasses.augeas.augeas
 ```
 
 The source documentation is also available in
-[`plugins/modules/augeas.py`](plugins/modules/augeas.py).
+[`plugins/modules/augeas.py`](https://github.com/soupglasses/ansible-augeas/blob/main/plugins/modules/augeas.py).
 
 ## Development
 
@@ -470,13 +471,13 @@ ansible-test integration augeas
 ansible-galaxy collection build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for dependencies and test expectations.
+See [CONTRIBUTING.md](https://github.com/soupglasses/ansible-augeas/blob/main/CONTRIBUTING.md) for dependencies and test expectations.
 
 ## Support and contributing
 
 Report bugs and request features through the
 [GitHub issue tracker](https://github.com/soupglasses/ansible-augeas/issues).
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the test commands and contribution
+See [CONTRIBUTING.md](https://github.com/soupglasses/ansible-augeas/blob/main/CONTRIBUTING.md) for the test commands and contribution
 requirements.
 
 Releases follow [Semantic Versioning](https://semver.org/). Breaking changes to
@@ -484,4 +485,5 @@ the public module interface are reserved for a new major version.
 
 ## License
 
-GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
+GNU General Public License v3.0 or later. See
+[LICENSE](https://github.com/soupglasses/ansible-augeas/blob/main/LICENSE).

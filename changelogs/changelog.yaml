@@ -19,3 +19,10 @@ releases:
         name: augeas
         namespace: ''
     release_date: '2026-08-23'
+  1.0.1:
+    changes:
+      bugfixes:
+        - Use absolute GitHub URLs for repository files linked from the Galaxy README.
+    fragments:
+      - galaxy-readme-links.yml
+    release_date: '2026-08-23'

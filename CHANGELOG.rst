@@ -4,6 +4,14 @@ Soupglasses Augeas Collection Release Notes
 
 .. contents:: Topics
 
+v1.0.1
+======
+
+Bugfixes
+--------
+
+- Use absolute GitHub URLs for repository files linked from the Galaxy README.
+
 v1.0.0
 ======
 
