@@ -1,0 +1,19 @@
+---
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      minor_changes:
+        - Add copy-style application validation before replacing the managed file.
+        - Add declarative merged, replaced, deleted, and gathered resource states.
+        - Add executable before, task, and after examples for 109 stock-lens cases.
+        - Add standard Ansible file attributes alongside Augeas configuration state.
+      release_summary: Initial stable release.
+    fragments:
+      - 1.0.0.yml
+      - file-attributes.yml
+    modules:
+      - description: Manage configuration through Augeas resource semantics.
+        name: augeas
+        namespace: ''
+    release_date: '2026-08-23'
