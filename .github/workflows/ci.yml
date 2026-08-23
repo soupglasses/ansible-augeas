@@ -116,7 +116,7 @@ jobs:
           export PKG_CONFIG_PATH="${libxml_prefix}/lib/pkgconfig"
           python -m pip install \
             "ansible-core==2.21.*" \
-            "python-augeas>=1.0.3" \
+            "python-augeas==1.2.0" \
             pytest
 
       - name: Run unit and lens tests
@@ -128,27 +128,3 @@ jobs:
       - name: Run integration tests
         working-directory: ansible_collections/soupglasses/augeas
         run: ansible-test integration --local augeas
-
-  freebsd:
-    name: Tests (FreeBSD 15)
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out the collection
-        uses: actions/checkout@v6
-        with:
-          path: ansible_collections/soupglasses/augeas
-
-      - name: Run tests in FreeBSD
-        uses: vmactions/freebsd-vm@83b151f58c6047089f4c80eb5ba2039d158ce093
-        with:
-          release: "15"
-          usesh: true
-          copyback: false
-          prepare: >-
-            pkg install -y augeas nginx py311-ansible-core
-            py311-pytest py311-python-augeas
-          run: |
-            export PYTHONPATH="${GITHUB_WORKSPACE}"
-            cd ansible_collections/soupglasses/augeas
-            python3.11 -m pytest -q tests/unit/plugins/module_utils
-            ansible-test integration --local --python 3.11 augeas

@@ -64,7 +64,7 @@ The collection requires ansible-core 2.18 or newer:
 ansible-galaxy collection install soupglasses.augeas
 ```
 
-Each managed node also needs Augeas, its lenses, and `python-augeas` 1.0.3 or
+Each managed node also needs Augeas, its lenses, and `python-augeas` 1.2.0 or
 newer. Common Debian package names are `augeas-lenses`, `libaugeas0`, and
 `python3-augeas`; common Fedora package names are `augeas-libs` and
 `python3-augeas`.
@@ -76,17 +76,11 @@ interpreter used by Ansible:
 brew install augeas
 AUGEAS_PREFIX="$(brew --prefix augeas)"
 CFLAGS="-I${AUGEAS_PREFIX}/include" LDFLAGS="-L${AUGEAS_PREFIX}/lib" \
-  python3 -m pip install "python-augeas>=1.0.3"
-```
-
-FreeBSD 15 and newer provide both dependencies as packages:
-
-```shell
-pkg install augeas py311-python-augeas
+  python3 -m pip install "python-augeas>=1.2.0"
 ```
 
 Package names and included lenses vary by operating system. CI runs the unit,
-lens, and integration suites on Linux, macOS, and FreeBSD 15.
+lens, and integration suites on Linux and macOS.
 
 Execution environment dependency metadata is included under [`meta/`](meta/).
 

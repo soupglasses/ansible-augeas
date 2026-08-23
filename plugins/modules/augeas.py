@@ -22,7 +22,7 @@ author:
   - Sofie Finnes (@soupglasses)
 requirements:
   - Augeas with the lens needed for the selected file
-  - python-augeas >= 1.0.3
+  - python-augeas >= 1.2.0
 extends_documentation_fragment:
   - files
 attributes:

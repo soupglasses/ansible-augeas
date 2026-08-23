@@ -9,9 +9,7 @@ license:
   - GPL-3.0-or-later
 tags:
   - augeas
-  - bsd
   - configuration
-  - freebsd
   - linux
   - macos
   - resource
