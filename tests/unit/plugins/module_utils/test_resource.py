@@ -302,6 +302,18 @@ def test_real_lens_null_clears_a_node_value(tmp_path):
     assert "$value" not in result["after"]
 
 
+def test_low_level_clear_creates_a_valueless_node(tmp_path):
+    resource, _target = _resource(tmp_path)
+    try:
+        resource.aug.set("/test/node", "value")
+        resource._clear_value("/test/node")
+        value = resource.aug.get("/test/node")
+    finally:
+        resource.close()
+
+    assert value is None
+
+
 def test_real_lens_check_mode_validates_without_writing(tmp_path):
     resource, target = _resource(tmp_path, check_mode=True)
     original = target.read_text()

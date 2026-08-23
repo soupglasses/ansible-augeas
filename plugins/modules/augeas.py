@@ -22,7 +22,7 @@ author:
   - Sofie Finnes (@soupglasses)
 requirements:
   - Augeas with the lens needed for the selected file
-  - python-augeas >= 1.2.0
+  - python-augeas >= 1.0.3
 extends_documentation_fragment:
   - files
 attributes:
@@ -158,7 +158,7 @@ EXAMPLES = r"""
       http:
         gzip: "off"
     state: merged
-    validate: /usr/sbin/nginx -t -c %s
+    validate: nginx -t -c %s
 """
 
 RETURN = r"""

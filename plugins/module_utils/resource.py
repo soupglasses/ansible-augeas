@@ -15,8 +15,12 @@ from typing import Optional, Tuple
 
 try:
     from augeas import Augeas
-    from _augeas import ffi as augeas_ffi
-    from _augeas import lib as augeas_lib
+    try:
+        from _augeas import ffi as augeas_ffi
+        from _augeas import lib as augeas_lib
+    except ImportError:
+        from augeas.ffi import ffi as augeas_ffi
+        from augeas.ffi import lib as augeas_lib
 except Exception as import_error:  # pragma: no cover - depends on the target host
     Augeas = None
     augeas_ffi = None
@@ -612,12 +616,15 @@ class AugeasResource:
         handle = getattr(self.aug, "_Augeas__handle", None)
         if handle is None:
             raise AugeasResourceError("python-augeas did not expose its Augeas handle")
+        # python-augeas encodes None as b"", which loses Augeas's valueless-node state.
         result = augeas_lib.aug_set(handle, path.encode("utf-8"), augeas_ffi.NULL)
         if result != 0:
-            message_pointer = augeas_lib.aug_error_message(handle)
             message = "Augeas rejected the operation"
-            if message_pointer != augeas_ffi.NULL:
-                message = augeas_ffi.string(message_pointer).decode("utf-8", "replace")
+            error_message = getattr(augeas_lib, "aug_error_message", None)
+            if error_message is not None:
+                message_pointer = error_message(handle)
+                if message_pointer != augeas_ffi.NULL:
+                    message = augeas_ffi.string(message_pointer).decode("utf-8", "replace")
             raise AugeasResourceError(message)
 
     def _remove_paths(self, paths):
