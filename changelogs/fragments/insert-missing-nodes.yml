@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - >-
+    Create missing Augeas nodes with sibling-aware insertion so lenses such as
+    Toml can save merged root entries after existing entries and before tables.

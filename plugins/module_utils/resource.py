@@ -397,6 +397,32 @@ def _canonical_label(path):
     return _INDEX_RE.sub("", segment)
 
 
+def _split_last_path(path):
+    quote = None
+    bracket_depth = 0
+    separator = -1
+
+    for index, character in enumerate(path):
+        if quote is not None:
+            if character == quote:
+                quote = None
+            continue
+        if character in ("'", '"'):
+            quote = character
+        elif character == "[":
+            bracket_depth += 1
+        elif character == "]":
+            bracket_depth = max(0, bracket_depth - 1)
+        elif character == "/" and bracket_depth == 0:
+            separator = index
+
+    return path[:separator], path[separator + 1 :]
+
+
+def _path_label(path):
+    return _split_last_path(path)[1].split("[", 1)[0]
+
+
 def _is_formatting(path):
     return _canonical_label(path) in _FORMATTING_LABELS
 
@@ -577,7 +603,11 @@ class AugeasResource:
                     % (relative, len(matches))
                 )
             try:
-                target = matches[0] if matches else _creation_path(full_path)
+                target = matches[0] if matches else self._creation_target(
+                    full_path,
+                    "config path %r" % relative,
+                    boundary=boundary,
+                )
                 if value is None:
                     self._clear_value(target)
                 else:
@@ -607,6 +637,47 @@ class AugeasResource:
                 if isinstance(error, AugeasResourceError):
                     raise
                 raise AugeasResourceError("could not set config path %r: %s" % (relative, error)) from error
+
+    def _creation_target(self, expression, description, boundary=None):
+        """Insert a missing sibling when its existing tree reveals its position."""
+        creation_path = _creation_path(expression)
+        parent_expression, segment = _split_last_path(creation_path)
+        label = _path_label(segment)
+        parents = self._confined_matches(
+            parent_expression,
+            "%s parent" % description,
+            boundary=boundary,
+        )
+        if (
+            len(parents) != 1
+            or not label
+            or "[" not in segment
+            or _INDEX_RE.search(segment)
+        ):
+            return creation_path
+
+        parent = parents[0]
+        siblings = self.aug.match(parent + "/*")
+        same_label = [sibling for sibling in siblings if _canonical_label(sibling) == label]
+        if same_label:
+            anchor = same_label[-1]
+            before = False
+        else:
+            semantic = [sibling for sibling in siblings if not _is_formatting(sibling)]
+            if not semantic:
+                return creation_path
+            anchor = semantic[0]
+            before = True
+
+        self.aug.insert(anchor, label, before)
+        candidates = [
+            sibling
+            for sibling in self.aug.match(parent + "/*")
+            if _canonical_label(sibling) == label
+        ]
+        if not candidates:
+            raise AugeasResourceError("Augeas did not create %s" % description)
+        return candidates[-1] if same_label else candidates[0]
 
     def _clear_value(self, path):
         handle = getattr(self.aug, "_Augeas__handle", None)

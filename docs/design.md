@@ -75,10 +75,17 @@ file root while retaining root-level comments and empty lines.
 ## Boundaries that cannot be generic
 
 Lenses implicitly define valid node shapes, required fields, and legal sibling
-ordering. Their public API does not expose a schema from which a generic
-resource module can infer a correct insertion point. Consequently, some
-`merged` creations can be rejected by a lens even though updating an existing
-node works. The rejection is safe and is also detected in check mode.
+ordering. When the existing tree provides a safe local anchor, the resource
+uses Augeas's public `insert` operation for a missing predicate-selected node:
+it is appended after siblings with the same label or inserted before the first
+different semantic sibling. Other missing nodes retain Augeas's normal `set`
+behavior. This avoids imposing a global ordering rule without embedding a
+lens-specific schema in the resource.
+
+If a lens requires an ordering that cannot be inferred from its existing tree,
+the save still fails safely and is also detected in check mode. Missing parent
+identity fields likewise remain the caller's responsibility; selectors identify
+existing nodes, while a node's value and children describe what to create.
 
 Repeated nodes do not have generic business identities. `$children` addresses
 them positionally, while an explicit Augeas predicate such as

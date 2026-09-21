@@ -260,6 +260,42 @@ def test_real_lens_merge_is_idempotent(tmp_path):
     assert second["changed"] is False
 
 
+@pytest.mark.parametrize(
+    "initial",
+    [
+        'model = "gpt-5.6-luna"\n\n[features]\nenabled = true\n',
+        "[features]\nenabled = true\n",
+    ],
+)
+def test_real_lens_merge_inserts_missing_toml_root_entry_before_tables(tmp_path, initial):
+    target = tmp_path / "etc" / "app" / "config.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(initial, encoding="utf-8")
+
+    resource = AugeasResource(
+        file="/etc/app/config.toml",
+        lens="Toml",
+        root=str(tmp_path),
+    )
+    try:
+        result = resource.run(
+            "merged",
+            {
+                'entry[.="model_reasoning_summary"]': {
+                    "$value": "model_reasoning_summary",
+                    "string": "detailed",
+                }
+            },
+        )
+    finally:
+        resource.close()
+
+    assert result["changed"] is True
+    contents = target.read_text(encoding="utf-8")
+    assert 'model_reasoning_summary = "detailed"' in contents
+    assert contents.index("model_reasoning_summary") < contents.index("[features]")
+
+
 def test_real_lens_merge_accepts_a_selector_key(tmp_path):
     resource, target = _resource(tmp_path)
     try:
