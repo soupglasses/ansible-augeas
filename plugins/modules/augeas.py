@@ -1,12 +1,7 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 
 # Copyright (c) 2026, Sofie Finnes <sofie+git@finnes.dev>
 # GNU General Public License v3.0+ (see https://www.gnu.org/licenses/gpl-3.0.txt)
-
-from __future__ import absolute_import, division, print_function
-
-__metaclass__ = type
 
 
 DOCUMENTATION = r"""
@@ -92,10 +87,10 @@ notes:
   - File attributes apply to mutating states and are not valid with V(gathered).
   - Existing source formatting is preserved where the lens can retain it. Text needed for new or
     structurally changed nodes is rendered using the lens's preferred representation.
-  - A lens can impose ordering constraints that a generic merged operation cannot infer. Augeas rejects
-    invalid trees, including during check mode.
-  - O(validate) checks one candidate file. Validators that require a directory or complete configuration
-    set need a wrapper command that accepts the candidate path.
+  - A lens can impose ordering constraints that a generic merged operation cannot infer. Augeas
+    rejects invalid trees, including during check mode.
+  - O(validate) checks one candidate file. Validators that require a directory or complete
+    configuration set need a wrapper command that accepts the candidate path.
 """
 
 EXAMPLES = r"""
@@ -185,7 +180,6 @@ import os
 import shlex
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-
 from ansible_collections.soupglasses.augeas.plugins.module_utils.resource import (
     AUGEAS_IMPORT_ERROR,
     HAS_AUGEAS,
@@ -252,7 +246,7 @@ def main():
         try:
             validation_command = shlex.split(validate)
         except ValueError as error:
-            module.fail_json(msg="could not parse validate: %s" % error)
+            module.fail_json(msg=f"could not parse validate: {error}")
         if not validation_command:
             module.fail_json(msg="validate must contain a command")
 
@@ -262,7 +256,7 @@ def main():
         if return_code != 0:
             output = stderr.strip() or stdout.strip() or "no output"
             raise AugeasResourceError(
-                "validation command failed with return code %d: %s" % (return_code, output)
+                f"validation command failed with return code {return_code}: {output}"
             )
 
     def commit(candidate, destination):
@@ -310,15 +304,15 @@ def main():
         if resource_changed:
             diffs.append(
                 {
-                    "before_header": "%s (Augeas tree)" % module.params["file"],
-                    "after_header": "%s (Augeas tree)" % module.params["file"],
+                    "before_header": f"{module.params['file']} (Augeas tree)",
+                    "after_header": f"{module.params['file']} (Augeas tree)",
                     "before": result["before"],
                     "after": result["after"],
                 }
             )
         if attribute_diff:
-            attribute_diff["before_header"] = "%s (file attributes)" % module.params["file"]
-            attribute_diff["after_header"] = "%s (file attributes)" % module.params["file"]
+            attribute_diff["before_header"] = f"{module.params['file']} (file attributes)"
+            attribute_diff["after_header"] = f"{module.params['file']} (file attributes)"
             diffs.append(attribute_diff)
         result["diff"] = diffs
     module.exit_json(**result)

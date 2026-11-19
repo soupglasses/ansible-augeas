@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2026, Sofie Finnes <sofie+git@finnes.dev>
 # GNU General Public License v3.0+ (see https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -9,11 +7,9 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from ansible_collections.soupglasses.augeas.plugins.module_utils.resource import (
     AugeasResource,
 )
-
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "lens_examples"
 README = Path(__file__).resolve().parents[4] / "README.md"
@@ -26,7 +22,7 @@ def test_readme_links_every_lens_example():
     readme = README.read_text(encoding="utf-8")
 
     for case_file in CASES:
-        assert "tests/lens_examples/%s" % case_file.name in readme
+        assert f"tests/lens_examples/{case_file.name}" in readme
 
 
 def _load_case(case_file):

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2026, Sofie Finnes <sofie+git@finnes.dev>
 # GNU General Public License v3.0+ (see https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -11,12 +9,11 @@ import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 try:
-    from augeas import Augeas
     from _augeas import ffi as augeas_ffi
     from _augeas import lib as augeas_lib
+    from augeas import Augeas
 except Exception as import_error:  # pragma: no cover - depends on the target host
     Augeas = None
     augeas_ffi = None
@@ -46,8 +43,8 @@ class ConfigError(AugeasResourceError):
 @dataclass(frozen=True)
 class TreeNode:
     label: str
-    value: Optional[str]
-    children: Tuple["TreeNode", ...]
+    value: str | None
+    children: tuple[TreeNode, ...]
 
 
 def _string_value(value, location):
@@ -55,55 +52,55 @@ def _string_value(value, location):
         return value
     if isinstance(value, bool):
         raise ConfigError(
-            "%s is a YAML boolean; quote values such as 'yes', 'no', 'on', and 'off'" % location
+            f"{location} is a YAML boolean; quote values such as 'yes', 'no', 'on', and 'off'"
         )
     if isinstance(value, (int, float)):
         return str(value)
-    raise ConfigError("%s must be a string, number, null, mapping, or sequence" % location)
+    raise ConfigError(f"{location} must be a string, number, null, mapping, or sequence")
 
 
 def _mapping_key(key, location):
     if isinstance(key, bool):
-        raise ConfigError("%s contains a boolean node label" % location)
+        raise ConfigError(f"{location} contains a boolean node label")
     if isinstance(key, (str, int)):
         key = str(key)
     else:
-        raise ConfigError("%s contains a node label that is not a string or integer" % location)
+        raise ConfigError(f"{location} contains a node label that is not a string or integer")
     if not key:
-        raise ConfigError("%s contains an empty node label" % location)
+        raise ConfigError(f"{location} contains an empty node label")
     if key.startswith("/"):
-        raise ConfigError("%s must use paths relative to the selected Augeas subtree" % location)
+        raise ConfigError(f"{location} must use paths relative to the selected Augeas subtree")
     if _has_parent_step(key):
-        raise ConfigError("%s must not use parent path steps" % location)
+        raise ConfigError(f"{location} must not use parent path steps")
     if _INDEX_RE.sub("", key.split("/", 1)[0]) in _FORMATTING_LABELS:
-        raise ConfigError("%s cannot manage Augeas formatting nodes" % location)
+        raise ConfigError(f"{location} cannot manage Augeas formatting nodes")
     if key.startswith("$$"):
         return key[1:]
     if key.startswith("$"):
         raise ConfigError(
-            "%s uses reserved key %r; double the first dollar sign for a literal label"
-            % (location, key)
+            f"{location} uses reserved key {key!r}; "
+            "double the first dollar sign for a literal label"
         )
     return key
 
 
 def _literal_label(label, location):
     if isinstance(label, bool):
-        raise ConfigError("%s has a boolean label" % location)
+        raise ConfigError(f"{location} has a boolean label")
     if isinstance(label, (str, int)):
         label = str(label)
     else:
-        raise ConfigError("%s has a label that is not a string or integer" % location)
+        raise ConfigError(f"{location} has a label that is not a string or integer")
     if not label or any(character in label for character in ("/", "*", "[")):
-        raise ConfigError("%s has a label that Augeas cannot address: %r" % (location, label))
+        raise ConfigError(f"{location} has a label that Augeas cannot address: {label!r}")
     if label in _FORMATTING_LABELS:
-        raise ConfigError("%s cannot manage Augeas formatting nodes" % location)
+        raise ConfigError(f"{location} cannot manage Augeas formatting nodes")
     if label.startswith("$$"):
         return label[1:]
     if label.startswith("$"):
         raise ConfigError(
-            "%s uses reserved label %r; double the first dollar sign for a literal label"
-            % (location, label)
+            f"{location} uses reserved label {label!r}; "
+            "double the first dollar sign for a literal label"
         )
     return label
 
@@ -113,33 +110,33 @@ def _relative_path(parent, child):
         return child
     if not child:
         return parent
-    return "%s/%s" % (parent, child)
+    return f"{parent}/{child}"
 
 
 def _child_entry(entry, location):
     if not isinstance(entry, Mapping):
-        raise ConfigError("%s must be a mapping containing one child node" % location)
+        raise ConfigError(f"{location} must be a mapping containing one child node")
     if len(entry) != 1:
-        raise ConfigError("%s must contain exactly one child node" % location)
+        raise ConfigError(f"{location} must contain exactly one child node")
     label, body = next(iter(entry.items()))
     return _literal_label(label, location), body
 
 
 def _decode_children(children, parent, entries, location):
     if not isinstance(children, Sequence) or isinstance(children, (str, bytes)):
-        raise ConfigError("%s.$children must be a sequence" % location)
+        raise ConfigError(f"{location}.$children must be a sequence")
 
     parsed = [
-        _child_entry(entry, "%s.$children[%d]" % (location, index))
+        _child_entry(entry, f"{location}.$children[{index}]")
         for index, entry in enumerate(children)
     ]
     occurrences = Counter()
 
     for index, (label, body) in enumerate(parsed):
         occurrences[label] += 1
-        segment = "%s[%d]" % (label, occurrences[label])
+        segment = f"{label}[{occurrences[label]}]"
         path = _relative_path(parent, segment)
-        _decode_body(body, path, entries, "%s.$children[%d]" % (location, index))
+        _decode_body(body, path, entries, f"{location}.$children[{index}]")
 
 
 def _decode_mapping(body, parent, entries, location):
@@ -152,15 +149,15 @@ def _decode_mapping(body, parent, entries, location):
         and key not in _CONTROL_KEYS
     ]
     if unknown_controls:
-        raise ConfigError("%s contains unknown control key %r" % (location, unknown_controls[0]))
+        raise ConfigError(f"{location} contains unknown control key {unknown_controls[0]!r}")
 
     ordinary = [key for key in body if key not in ("$children", "$value")]
     if "$children" in body and ordinary:
-        raise ConfigError("%s cannot mix $children with ordinary child keys" % location)
+        raise ConfigError(f"{location} cannot mix $children with ordinary child keys")
 
     emitted = False
     if "$value" in body:
-        entries.append((parent, _string_value(body["$value"], "%s.$value" % location)))
+        entries.append((parent, _string_value(body["$value"], f"{location}.$value")))
         emitted = True
 
     if "$children" in body:
@@ -171,7 +168,7 @@ def _decode_mapping(body, parent, entries, location):
 
     for key in ordinary:
         child = _mapping_key(key, location)
-        _decode_body(body[key], _relative_path(parent, child), entries, "%s.%s" % (location, child))
+        _decode_body(body[key], _relative_path(parent, child), entries, f"{location}.{child}")
 
     if not body and parent:
         entries.append((parent, None))
@@ -187,11 +184,11 @@ def _decode_body(body, parent, entries, location):
                 entries.append((parent, None))
             return
         for index, child_body in enumerate(body, 1):
-            child = _relative_path(parent, "*[%d]" % index)
-            _decode_body(child_body, child, entries, "%s[%d]" % (location, index - 1))
+            child = _relative_path(parent, f"*[{index}]")
+            _decode_body(child_body, child, entries, f"{location}[{index - 1}]")
         return
     if not parent:
-        raise ConfigError("%s must be a mapping" % location)
+        raise ConfigError(f"{location} must be a mapping")
     entries.append((parent, _string_value(body, location)))
 
 
@@ -212,7 +209,7 @@ def flatten_config(config):
     seen = set()
     for path, _value in normalized:
         if path in seen:
-            raise ConfigError("config describes Augeas path %r more than once" % path)
+            raise ConfigError(f"config describes Augeas path {path!r} more than once")
         seen.add(path)
     return normalized
 
@@ -265,9 +262,7 @@ def _uses_path_expressions(body):
             return any(
                 _uses_path_expressions(child_body)
                 for index, entry in enumerate(body["$children"])
-                for _label, child_body in (
-                    _child_entry(entry, "config.$children[%d]" % index),
-                )
+                for _label, child_body in (_child_entry(entry, f"config.$children[{index}]"),)
             )
         for key, child_body in body.items():
             if key == "$value":
@@ -284,10 +279,10 @@ def _uses_path_expressions(body):
 
 def _node_parts(body, location):
     if isinstance(body, Mapping):
-        value = _string_value(body.get("$value"), "%s.$value" % location)
+        value = _string_value(body.get("$value"), f"{location}.$value")
         if "$children" in body:
             children = [
-                _child_entry(entry, "%s.$children[%d]" % (location, index))
+                _child_entry(entry, f"{location}.$children[{index}]")
                 for index, entry in enumerate(body["$children"])
             ]
             return value, children, True
@@ -329,7 +324,7 @@ def _semantic_bodies_match(current, desired, location="config"):
         if not _semantic_bodies_match(
             current_body,
             desired_body,
-            "%s.%s" % (location, desired_label),
+            f"{location}.{desired_label}",
         ):
             return False
     return True
@@ -430,7 +425,7 @@ def _is_formatting(path):
 def _join_path(base, relative):
     if not relative:
         return base
-    return "%s/%s" % (base.rstrip("/"), relative)
+    return f"{base.rstrip('/')}/{relative}"
 
 
 def _creation_path(path):
@@ -438,7 +433,10 @@ def _creation_path(path):
 
 
 def _delete_sort_key(path):
-    indexes = tuple(int(match.group(1)) if match else 0 for match in (_INDEX_RE.search(part) for part in path.split("/")))
+    indexes = tuple(
+        int(match.group(1)) if match else 0
+        for match in (_INDEX_RE.search(part) for part in path.split("/"))
+    )
     return path.count("/"), indexes
 
 
@@ -455,7 +453,7 @@ class AugeasResource:
         commit=None,
     ):
         if not HAS_AUGEAS:
-            raise AugeasResourceError("python-augeas could not be imported: %s" % AUGEAS_IMPORT_ERROR)
+            raise AugeasResourceError(f"python-augeas could not be imported: {AUGEAS_IMPORT_ERROR}")
         if not isinstance(file, str) or not os.path.isabs(file):
             raise AugeasResourceError("file must be an absolute path")
         if any(character in file for character in ("*", "?", "[", "\x00")):
@@ -470,7 +468,7 @@ class AugeasResource:
         self.file = posixpath.normpath(file)
         self.lens = lens
         self.path = path.strip("/")
-        self.tree_path = "/files%s" % self.file
+        self.tree_path = f"/files{self.file}"
         self.base_expression = _join_path(self.tree_path, self.path)
         self.check_mode = check_mode
         self.validator = validator
@@ -494,7 +492,7 @@ class AugeasResource:
             raise
         except Exception as error:
             self.close()
-            raise AugeasResourceError("failed to initialize Augeas: %s" % error) from error
+            raise AugeasResourceError(f"failed to initialize Augeas: {error}") from error
 
     def close(self):
         if self.aug is not None:
@@ -502,7 +500,7 @@ class AugeasResource:
             self.aug = None
 
     def _file_errors(self):
-        metadata = "/augeas/files%s/error" % self.file
+        metadata = f"/augeas/files{self.file}/error"
         errors = []
         for error_path in self.aug.match(metadata):
             value = self.aug.get(error_path)
@@ -514,25 +512,27 @@ class AugeasResource:
             message = details.pop("message", None)
             if message:
                 message = message.split("\n\n  with pattern", 1)[0].strip()
-            context = ", ".join("%s=%s" % item for item in details.items())
+            context = ", ".join(f"{label}={detail}" for label, detail in details.items())
             errors.append(": ".join(part for part in (value, context, message) if part))
         return errors
 
     def _raise_file_errors(self, operation):
         errors = self._file_errors()
         if errors:
-            raise AugeasResourceError("Augeas %s failed for %s: %s" % (operation, self.file, "; ".join(errors)))
+            raise AugeasResourceError(
+                f"Augeas {operation} failed for {self.file}: {'; '.join(errors)}"
+            )
 
     def _resolve_base(self):
         try:
-            matches = self._confined_matches(self.base_expression, "path %r" % self.path)
+            matches = self._confined_matches(self.base_expression, f"path {self.path!r}")
         except Exception as error:
             if isinstance(error, AugeasResourceError):
                 raise
-            raise AugeasResourceError("invalid Augeas path %r: %s" % (self.path, error)) from error
+            raise AugeasResourceError(f"invalid Augeas path {self.path!r}: {error}") from error
         if len(matches) > 1:
             raise AugeasResourceError(
-                "Augeas path %r selects %d nodes; use an index or predicate" % (self.path, len(matches))
+                f"Augeas path {self.path!r} selects {len(matches)} nodes; use an index or predicate"
             )
         return (matches[0], True) if matches else (self.base_expression, False)
 
@@ -540,9 +540,7 @@ class AugeasResource:
         matches = self.aug.match(expression)
         prefix = (boundary or self.tree_path).rstrip("/")
         escaped = [
-            match
-            for match in matches
-            if match != prefix and not match.startswith(prefix + "/")
+            match for match in matches if match != prefix and not match.startswith(prefix + "/")
         ]
         if escaped:
             scope = (
@@ -551,8 +549,7 @@ class AugeasResource:
                 else "selected Augeas subtree"
             )
             raise AugeasResourceError(
-                "Augeas %s selects a node outside the %s: %s"
-                % (description, scope, escaped[0])
+                f"Augeas {description} selects a node outside the {scope}: {escaped[0]}"
             )
         return matches
 
@@ -561,7 +558,7 @@ class AugeasResource:
         if not matches:
             return None
         if len(matches) > 1:
-            raise AugeasResourceError("Augeas path %r unexpectedly became ambiguous" % path)
+            raise AugeasResourceError(f"Augeas path {path!r} unexpectedly became ambiguous")
         exact = matches[0]
         children = tuple(
             self._read_node(child, _canonical_label(child))
@@ -594,19 +591,23 @@ class AugeasResource:
             boundary = base if base_exists else None
             matches = self._confined_matches(
                 full_path,
-                "config path %r" % relative,
+                f"config path {relative!r}",
                 boundary=boundary,
             )
             if len(matches) > 1:
                 raise AugeasResourceError(
-                    "config path %r selects %d nodes; use $children, an index, or a predicate"
-                    % (relative, len(matches))
+                    f"config path {relative!r} selects {len(matches)} nodes; "
+                    "use $children, an index, or a predicate"
                 )
             try:
-                target = matches[0] if matches else self._creation_target(
-                    full_path,
-                    "config path %r" % relative,
-                    boundary=boundary,
+                target = (
+                    matches[0]
+                    if matches
+                    else self._creation_target(
+                        full_path,
+                        f"config path {relative!r}",
+                        boundary=boundary,
+                    )
                 )
                 if value is None:
                     self._clear_value(target)
@@ -614,29 +615,31 @@ class AugeasResource:
                     self.aug.set(target, value)
                 base_matches = self._confined_matches(
                     self.base_expression,
-                    "path %r" % self.path,
+                    f"path {self.path!r}",
                 )
                 if len(base_matches) != 1:
                     raise AugeasResourceError(
-                        "config path %r did not create one selected subtree" % relative
+                        f"config path {relative!r} did not create one selected subtree"
                     )
                 base = base_matches[0]
                 base_exists = True
                 created = self._confined_matches(
                     full_path,
-                    "config path %r" % relative,
+                    f"config path {relative!r}",
                     boundary=base,
                 )
                 if not created:
                     self._confined_matches(
                         target,
-                        "config path %r" % relative,
+                        f"config path {relative!r}",
                         boundary=base,
                     )
             except Exception as error:
                 if isinstance(error, AugeasResourceError):
                     raise
-                raise AugeasResourceError("could not set config path %r: %s" % (relative, error)) from error
+                raise AugeasResourceError(
+                    f"could not set config path {relative!r}: {error}"
+                ) from error
 
     def _creation_target(self, expression, description, boundary=None):
         """Insert a missing sibling when its existing tree reveals its position."""
@@ -645,15 +648,10 @@ class AugeasResource:
         label = _path_label(segment)
         parents = self._confined_matches(
             parent_expression,
-            "%s parent" % description,
+            f"{description} parent",
             boundary=boundary,
         )
-        if (
-            len(parents) != 1
-            or not label
-            or "[" not in segment
-            or _INDEX_RE.search(segment)
-        ):
+        if len(parents) != 1 or not label or "[" not in segment or _INDEX_RE.search(segment):
             return creation_path
 
         parent = parents[0]
@@ -676,7 +674,7 @@ class AugeasResource:
             if _canonical_label(sibling) == label
         ]
         if not candidates:
-            raise AugeasResourceError("Augeas did not create %s" % description)
+            raise AugeasResourceError(f"Augeas did not create {description}")
         return candidates[-1] if same_label else candidates[0]
 
     def _clear_value(self, path):
@@ -697,23 +695,27 @@ class AugeasResource:
             try:
                 self.aug.remove(path)
             except Exception as error:
-                raise AugeasResourceError("could not remove Augeas path %r: %s" % (path, error)) from error
+                raise AugeasResourceError(
+                    f"could not remove Augeas path {path!r}: {error}"
+                ) from error
 
     def _clear_children(self, base):
-        self._remove_paths(child for child in self.aug.match(base + "/*") if not _is_formatting(child))
+        self._remove_paths(
+            child for child in self.aug.match(base + "/*") if not _is_formatting(child)
+        )
 
     def _save(self):
         candidate = self.source_path + ".augnew" if self.candidate_save else None
         if candidate is not None and os.path.lexists(candidate):
             raise AugeasResourceError(
-                "refusing to overwrite existing Augeas candidate %s" % candidate
+                f"refusing to overwrite existing Augeas candidate {candidate}"
             )
         try:
             self.aug.save()
         except Exception as error:
             details = self._file_errors()
             reason = "; ".join(details) if details else str(error)
-            raise AugeasResourceError("Augeas refused to save %s: %s" % (self.file, reason)) from error
+            raise AugeasResourceError(f"Augeas refused to save {self.file}: {reason}") from error
         self._raise_file_errors("save")
 
         if candidate is None:
@@ -726,15 +728,13 @@ class AugeasResource:
                     raise
                 except Exception as error:
                     raise AugeasResourceError(
-                        "validation failed for %s: %s" % (self.file, error)
+                        f"validation failed for {self.file}: {error}"
                     ) from error
             if not self.check_mode:
                 try:
                     self.commit(candidate, self.source_path)
                 except Exception as error:
-                    raise AugeasResourceError(
-                        "could not commit %s: %s" % (self.file, error)
-                    ) from error
+                    raise AugeasResourceError(f"could not commit {self.file}: {error}") from error
         finally:
             if os.path.lexists(candidate):
                 os.unlink(candidate)
@@ -765,7 +765,7 @@ class AugeasResource:
                     matches.extend(
                         self._confined_matches(
                             _join_path(base, relative),
-                            "config path %r" % relative,
+                            f"config path {relative!r}",
                             boundary=base if base_exists else None,
                         )
                     )
@@ -777,7 +777,7 @@ class AugeasResource:
             elif not self.path and base_exists:
                 self._clear_children(base)
         else:
-            raise AugeasResourceError("unsupported state %r" % state)
+            raise AugeasResourceError(f"unsupported state {state!r}")
 
         after = {} if base_removed else self._configuration(base)
         changed = before_fingerprint != self._fingerprint()

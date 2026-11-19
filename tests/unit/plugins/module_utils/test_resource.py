@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Copyright (c) 2026, Sofie Finnes <sofie+git@finnes.dev>
 # GNU General Public License v3.0+ (see https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -8,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
+from ansible_collections.soupglasses.augeas.plugins.module_utils import resource as resource_module
 from ansible_collections.soupglasses.augeas.plugins.module_utils.resource import (
     AugeasResource,
     AugeasResourceError,
@@ -17,8 +15,6 @@ from ansible_collections.soupglasses.augeas.plugins.module_utils.resource import
     encode_config,
     flatten_config,
 )
-from ansible_collections.soupglasses.augeas.plugins.module_utils import resource as resource_module
-
 
 SSHD_CONFIG = """\
 # Managed by the Augeas collection tests
@@ -47,15 +43,13 @@ def test_flatten_compact_mapping():
 
 
 def test_flatten_selector_key():
-    assert flatten_config(
-        {'Match[Condition/User="deploy"]/Settings/X11Forwarding': "no"}
-    ) == [('Match[Condition/User="deploy"]/Settings/X11Forwarding', "no")]
+    assert flatten_config({'Match[Condition/User="deploy"]/Settings/X11Forwarding': "no"}) == [
+        ('Match[Condition/User="deploy"]/Settings/X11Forwarding', "no")
+    ]
 
 
 def test_flatten_selector_allows_parent_tokens_inside_a_quoted_value():
-    assert flatten_config({'key[.="a/../b"]': "value"}) == [
-        ('key[.="a/../b"]', "value")
-    ]
+    assert flatten_config({'key[.="a/../b"]': "value"}) == [('key[.="a/../b"]', "value")]
 
 
 def test_flatten_ordered_duplicate_and_numeric_children():
@@ -77,9 +71,10 @@ def test_flatten_ordered_duplicate_and_numeric_children():
 
 
 def test_flatten_node_with_value_and_children():
-    assert flatten_config(
-        {"Node": {"$value": "parent", "Child": "child"}}
-    ) == [("Node", "parent"), ("Node/Child", "child")]
+    assert flatten_config({"Node": {"$value": "parent", "Child": "child"}}) == [
+        ("Node", "parent"),
+        ("Node/Child", "child"),
+    ]
 
 
 def test_plain_sequences_are_always_positional():
@@ -321,9 +316,7 @@ def test_real_lens_ordered_merge_selects_first_occurrence(tmp_path):
         resource.close()
 
     assert result["changed"] is True
-    accept_env = [
-        line for line in target.read_text().splitlines() if line.startswith("AcceptEnv")
-    ]
+    accept_env = [line for line in target.read_text().splitlines() if line.startswith("AcceptEnv")]
     assert accept_env == ["AcceptEnv LANG LC_MESSAGES", "AcceptEnv LC_ALL"]
 
 
@@ -513,11 +506,7 @@ def test_replaced_creates_a_missing_selected_subtree(tmp_path):
 
     assert result["changed"] is True
     assert result["after"] == desired
-    assert target.read_text() == (
-        "Port 22\n"
-        'Match User "backup"\n'
-        "  X11Forwarding no\n"
-    )
+    assert target.read_text() == ('Port 22\nMatch User "backup"\n  X11Forwarding no\n')
 
 
 def test_replaced_ignores_order_in_an_ordinary_mapping(tmp_path):
@@ -705,8 +694,7 @@ def test_hosts_lens_round_trip_uses_positional_records(tmp_path):
     target = tmp_path / "etc" / "hosts"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        "127.0.0.1 localhost localhost.localdomain\n"
-        "192.0.2.10 app.example.test app\n"
+        "127.0.0.1 localhost localhost.localdomain\n192.0.2.10 app.example.test app\n"
     )
 
     resource = AugeasResource(file="/etc/hosts", lens="Hosts", root=str(tmp_path))
