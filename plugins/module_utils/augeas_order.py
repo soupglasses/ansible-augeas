@@ -44,7 +44,7 @@ def _plan(size, relations):
 
 
 def _sort(size, participants, constraints):
-    outgoing = [[] for _ in range(size)]
+    outgoing = [[] for dummy in range(size)]
     indegree = [0] * size
     for a, b in constraints:
         outgoing[a].append(b)
