@@ -1162,7 +1162,12 @@ def test_batch_moves_ancestor_and_orders_descendants(tmp_path):
         )
 
 
-def test_batch_content_edit_cannot_retarget_an_existing_resource(tmp_path):
+@pytest.mark.parametrize(
+    "deleted",
+    ["Port[1]", 'Port[. = "22"]'],
+    ids=["shifts-the-subject", "deletes-the-subject"],
+)
+def test_batch_content_edit_cannot_retarget_an_existing_resource(tmp_path, deleted):
     target = tmp_path / "sshd_config"
     original = "Port 21\nPort 22\nPort 23\n"
     target.write_text(original)
@@ -1170,11 +1175,12 @@ def test_batch_content_edit_cannot_retarget_an_existing_resource(tmp_path):
         _sshd_batch(
             tmp_path,
             [
-                {"path": "Port[1]", "state": "deleted"},
+                {"path": deleted, "state": "deleted"},
                 {"path": "Port[2]", "config": {"$value": "2222"}},
             ],
         )
     assert target.read_text() == original
+
 
 def test_check_mode_leaves_existing_candidate_untouched(tmp_path):
     target = _resolvers(tmp_path, ["1.1.1.1", "8.8.8.8", "9.9.9.9"])

@@ -858,12 +858,10 @@ class AugeasResource:
 
         def resolve_subject(decl, view):
             base, exists = view._resolve_base()
-            if exists and decl.path in bound:
-                original = self.aug.match(bound[decl.path])
-                if original and original != [base]:
-                    raise AugeasResourceError(
-                        f"path {decl.path!r} changed identity during reconciliation"
-                    )
+            if exists and decl.path in bound and self.aug.match(bound[decl.path]) != [base]:
+                raise AugeasResourceError(
+                    f"path {decl.path!r} changed identity during reconciliation"
+                )
             return base, exists
 
         for decl, view in views:
@@ -878,7 +876,10 @@ class AugeasResource:
         groups = defaultdict(list)
         locations = []
         for decl, view in views:
-            base, exists = resolve_subject(decl, view)
+            if decl.state == "deleted":
+                base, exists = view._resolve_base()
+            else:
+                base, exists = resolve_subject(decl, view)
             locations.append(self._location(base) if exists else None)
             if decl.anchor is not None:
                 if not exists or base == self.tree_path:
