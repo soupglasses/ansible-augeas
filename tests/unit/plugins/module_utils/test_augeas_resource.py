@@ -1176,3 +1176,18 @@ def test_batch_content_edit_cannot_retarget_an_existing_resource(tmp_path):
         )
     assert target.read_text() == original
 
+def test_check_mode_leaves_existing_candidate_untouched(tmp_path):
+    target = _resolvers(tmp_path, ["1.1.1.1", "8.8.8.8", "9.9.9.9"])
+    original = target.read_text()
+    stale = tmp_path / "resolv.conf.augnew"
+    stale.write_text("stale\n")
+
+    assert _place_quad9(tmp_path, check_mode=True, anchor="nameserver")["changed"]
+    resource = AugeasResource("/resolv.conf", "Resolv", root=str(tmp_path), check_mode=True)
+    try:
+        assert resource.run_resources([{"path": QUAD9, "before": "nameserver"}])["changed"]
+    finally:
+        resource.close()
+
+    assert target.read_text() == original
+    assert stale.read_text() == "stale\n"

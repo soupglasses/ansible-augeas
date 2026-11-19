@@ -50,7 +50,8 @@ as a successful change.
 
 When `validate` is set, the parsed command checks the rendered candidate before
 the commit. Check mode validates the same candidate and removes it without
-committing; without a validator it uses Augeas's no-op save. Validation is
+committing; without a validator it uses Augeas's no-op save, or renders the
+candidate in memory when placement or `resources` must reparse it. Validation is
 skipped when the semantic fingerprint did not change.
 
 ## Resource-state interpretation
