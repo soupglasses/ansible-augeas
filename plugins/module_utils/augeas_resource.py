@@ -727,7 +727,7 @@ class AugeasResource:
                     raise
                 except Exception as error:
                     raise AugeasResourceError(
-                        f"could not verify placement in {self.file}: {error}"
+                        f"could not verify the rendered {self.file}: {error}"
                     ) from error
             if self.validator is not None:
                 try:
@@ -871,7 +871,17 @@ class AugeasResource:
             unchanged = decl.state == "replaced" and _configurations_match(
                 view._configuration(base), decl.config, decl.entries
             )
+            below = [
+                path
+                for path, variable in bound.items()
+                if exists and any(node.startswith(base + "/") for node in self.aug.match(variable))
+            ]
             view._apply_content(decl.state, decl.config, decl.entries, base, exists, unchanged)
+            # Replacing or deleting a node recreates or removes its children, so a
+            # declaration below it selects whatever this declaration left there.
+            for path in below:
+                if not self.aug.match(bound[path]):
+                    del bound[path]
 
         groups = defaultdict(list)
         locations = []
@@ -894,7 +904,18 @@ class AugeasResource:
         after = self._fingerprint(self.tree_path)
         changed = before != after
         if changed:
-            self._save_verified(lambda parsed: parsed._verify_resources(declarations, locations))
+            # Reparsing renumbers sequence labels, so a deleted record's path can
+            # select its successor. The live tree already verified those deletions.
+            remaining = [
+                (decl, location)
+                for decl, location in zip(declarations, locations)
+                if decl.state != "deleted" or location is not None
+            ]
+            reparsed = (
+                [decl for decl, location in remaining],
+                [location for decl, location in remaining],
+            )
+            self._save_verified(lambda parsed: parsed._verify_resources(*reparsed))
         original = encode_config(next(iter(before), None), ordered=True)
         updated = encode_config(next(iter(after), None), ordered=True) if changed else original
         return {"changed": changed, "before": original, "after": updated}
@@ -921,7 +942,7 @@ class AugeasResource:
                 target = os.path.join(root, self.file.lstrip("/"))
                 os.makedirs(os.path.dirname(target), exist_ok=True)
                 if candidate is None:
-                    with open(target, "w", encoding="utf-8", newline="") as rendered:
+                    with open(target, "wb") as rendered:
                         rendered.write(self._render())
                 else:
                     shutil.copyfile(candidate, target)
@@ -939,17 +960,23 @@ class AugeasResource:
     def _render(self):
         """Render the file in memory, so check mode writes nothing beside it."""
         try:
-            with open(self.source_path, encoding="utf-8", newline="") as source:
+            with open(self.source_path, "rb") as source:
                 original = source.read()
         except FileNotFoundError:
-            original = ""
+            original = b""
         (lens,) = self.aug.match("/augeas/load/*/lens")
+        # python-augeas only passes UTF-8 text, while Augeas renders any bytes.
+        handle = self.aug._Augeas__handle
+        text = augeas_ffi.new("char *[1]")
         try:
-            self.aug.set("/render/original", original)
+            if augeas_lib.aug_set(handle, b"/render/original", original) != 0:
+                raise RuntimeError("could not store the original text")
             self.aug.text_retrieve(
                 self.aug.get(lens), "/render/original", self.tree_path, "/render/text"
             )
-            return self.aug.get("/render/text")
+            if augeas_lib.aug_get(handle, b"/render/text", text) != 1:
+                raise RuntimeError("no rendered text")
+            return augeas_ffi.string(text[0])
         except Exception as error:
             raise AugeasResourceError(f"Augeas refused to render {self.file}: {error}") from error
         finally:

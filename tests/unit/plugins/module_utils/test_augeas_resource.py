@@ -1182,6 +1182,51 @@ def test_batch_content_edit_cannot_retarget_an_existing_resource(tmp_path, delet
     assert target.read_text() == original
 
 
+def test_batch_orders_a_child_of_a_replaced_parent(tmp_path):
+    target = tmp_path / "ssh_config"
+    target.write_text("Host a\n  Port 1\nHost b\n  Port 2\n")
+    host = 'Host[. = "a"]'
+    declarations = [
+        {"path": host, "state": "replaced", "config": {"$value": "a", "Port": "1", "User": "x"}},
+        {"path": host + "/Port", "before": "User"},
+    ]
+    for changed in (True, False):
+        resource = AugeasResource("/ssh_config", "Ssh", root=str(tmp_path))
+        try:
+            assert resource.run_resources(declarations)["changed"] is changed
+        finally:
+            resource.close()
+        assert target.read_text() == "Host a\n  Port 1\nUser x\nHost b\n  Port 2\n"
+
+
+def test_batch_deletes_a_numbered_record(tmp_path):
+    target = tmp_path / "hosts"
+    target.write_text("192.0.2.1 a\n192.0.2.2 b\n192.0.2.3 c\n")
+    resource = AugeasResource("/hosts", "Hosts", root=str(tmp_path))
+    try:
+        assert resource.run_resources([{"path": "1", "state": "deleted"}])["changed"]
+    finally:
+        resource.close()
+    assert target.read_text() == "192.0.2.2 b\n192.0.2.3 c\n"
+
+
+@pytest.mark.parametrize("check_mode", [True, False])
+def test_placement_handles_a_file_that_is_not_utf8(tmp_path, check_mode):
+    target = tmp_path / "hosts"
+    original = b"# caf\xe9\n192.0.2.1 a\n192.0.2.3 c\n"
+    target.write_bytes(original)
+    resource = AugeasResource(
+        "/hosts", "Hosts", path='*[canonical="c"]', root=str(tmp_path), check_mode=check_mode
+    )
+    try:
+        assert resource.run("merged", {}, anchor='*[canonical="a"]')["changed"]
+    finally:
+        resource.close()
+    assert target.read_bytes() == (
+        original if check_mode else b"# caf\xe9\n192.0.2.3 c\n192.0.2.1 a\n"
+    )
+
+
 def test_check_mode_leaves_existing_candidate_untouched(tmp_path):
     target = _resolvers(tmp_path, ["1.1.1.1", "8.8.8.8", "9.9.9.9"])
     original = target.read_text()
