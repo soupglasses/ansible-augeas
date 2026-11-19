@@ -67,8 +67,8 @@ value such as `no` cannot become the string `false` by accident.
 
 ### `merged`
 
-`merged` sets or creates only the paths described by `config`. Unspecified
-nodes remain in place, and existing nodes are not reordered.
+`merged` sets or creates only the paths described by `config`. Existing nodes
+stay in place unless `before` or `after` moves the selected node.
 
 Children under `$children` are addressed by their one-based occurrence among
 siblings with the same label. With this file:
@@ -95,7 +95,9 @@ Use an Augeas predicate when a stable value in the tree can identify the node.
 
 A lens can reject creation at a syntactically invalid position. For example,
 the `Sshd` lens requires global settings before `Match` blocks. Augeas rejects
-a merge that would append a new global setting after a `Match` block. Use
+a merge that would append a new global setting after a `Match` block. Select
+the setting with `path` and add `before: Match` to create it before the
+blocks, as described in [Sibling placement](#sibling-placement). Use
 `replaced` with `$children` when the whole order must be declared.
 
 ### `replaced`
@@ -132,6 +134,23 @@ and empty lines remain.
 `gathered` parses and returns the selected tree as `gathered`. It never saves
 the file and always reports `changed: false`.
 
+## Multiple resources in one file
+
+Use `resources` for a list of declarations sharing one `file`, `lens`,
+`load_path`, validation command and set of file attributes. Within each
+declaration, `path` defaults to the file root and `state` defaults to
+`merged`. Each item accepts `config` and one sibling placement option.
+The list supports `merged`, `replaced` and `deleted`. Use a separate
+`gathered` task to read a subtree.
+
+With `resources`, put all resource options inside the list. The returned
+`before` and `after` describe the entire file tree, including for a list
+of one declaration. Their `$children` lists show sibling order, including
+formatting nodes. List order gives declarations no priority. Checks for cyclic
+ordering, incompatible immediate neighbors, and conflicting content run before
+the file is committed. Check mode evaluates the combined changes. A failed
+declaration or failed validation leaves the file contents intact.
+
 ## Selectors and repeated resources
 
 `path` and mapping keys accept Augeas expressions relative to the managed file
@@ -166,6 +185,46 @@ The predicate is lookup information. `$value` is construction data. Augeas
 does not copy the comparison literal from the path into a new node. The
 collection does not add another identity or matching language around this
 behavior.
+
+## Sibling placement
+
+`before` and `after` keep the node selected by `path` on one side of its
+siblings. They apply to `merged` and `replaced`, and need a `path` below the
+file root. The value is an Augeas expression relative to the selected node's
+parent and may select several siblings:
+
+```yaml
+path: 'nameserver[. = "9.9.9.9"]'
+before: nameserver
+config:
+  $value: "9.9.9.9"
+state: merged
+```
+
+This keeps Quad9 before every other `nameserver`. The selected node itself is
+ignored, so once Quad9 is first the task reports no change. With
+`before: nameserver[1]` the node only has to precede the first server, which
+gives the same result here.
+
+The module applies the state first and moves the selected subtree only if
+needed. Other siblings keep their relative order. Omit `config` with
+`merged` when the task only manages the position of an existing node.
+
+| Placement | Anchor matches | When placement is satisfied |
+| --- | --- | --- |
+| `before` / `after` | Zero or more siblings, excluding the selected node itself | All matches are on the requested side. |
+| `immediately_before` / `immediately_after` | Exactly one distinct sibling | The selected node is the anchor's nearest sibling on the requested side. |
+
+All options accept Augeas path expressions relative to the selected node's
+parent. Every child exposed by the lens counts, including `#comment` and, where
+available, `#empty`. A lens can preserve physical whitespace outside its tree.
+Moving a node moves all its descendants. A separate sibling, such as a leading
+comment, has its own identity and stays in place unless explicitly selected.
+
+With diff mode, a move reports the one-based sibling positions. Before
+committing, the module reparses the rendered candidate and verifies that the
+declaration selects the same location and is already satisfied. Prefer a stable
+value or child predicate for records whose numeric labels are assigned on load.
 
 ## XML labels
 

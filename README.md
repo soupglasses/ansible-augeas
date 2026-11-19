@@ -56,6 +56,106 @@ context, and filesystem attributes are enforced by the same task and count as
 changes. When omitted, an existing file keeps its metadata; a new file inherits
 the target's umask, ownership, and SELinux policy defaults.
 
+### Manage one SSH Match block
+
+A role can create the deploy user's block or update it in place. The predicate
+finds the block, and `Condition` supplies the user when creating it. Other
+settings in an existing block survive the merge.
+
+```yaml
+- name: Disable X11 forwarding for deploy
+  soupglasses.augeas.augeas:
+    file: /etc/ssh/sshd_config
+    lens: Sshd
+    path: 'Match[Condition/User="deploy"]'
+    config:
+      Condition:
+        User: deploy
+      Settings:
+        X11Forwarding: "no"
+```
+
+### Keep a preferred DNS resolver first
+
+```yaml
+- name: Prefer Quad9 while keeping the other resolvers
+  soupglasses.augeas.augeas:
+    file: /etc/resolv.conf
+    lens: Resolv
+    path: 'nameserver[. = "9.9.9.9"]'
+    before: nameserver
+    config:
+      $value: "9.9.9.9"
+```
+
+If Quad9 is missing, the task adds it. If it is third, the task moves it to
+first and keeps the other servers in their original order. Once Quad9 is
+first, the task reports no change.
+
+### Place a selected node next to another one
+
+Use `path` to identify the node this role manages and `immediately_before` or
+`immediately_after` to select its neighbor. For example, keep an SSH rule
+directly ahead of a fallback block, including all its existing settings:
+
+```yaml
+- name: Put the deploy block directly ahead of the fallback block
+  soupglasses.augeas.augeas:
+    file: /etc/ssh/sshd_config
+    lens: Sshd
+    path: 'Match[Condition/User="deploy"]'
+    immediately_before: 'Match[Condition/Group="contractors"]'
+```
+
+This task only manages the order of two existing blocks. Use `before` instead
+when other blocks may appear between them. To create a node as well, supply
+its contents in `config`. The same interface works for a comment:
+
+```yaml
+- name: Put the access policy note directly above the SSH banner
+  soupglasses.augeas.augeas:
+    file: /etc/ssh/sshd_config
+    lens: Sshd
+    path: '#comment[. =~ regexp("access-policy: .*")]'
+    config:
+      $value: "access-policy: Display the legal notice before login."
+    immediately_before: Banner
+```
+
+The selector identifies the note across wording changes. Any handwritten
+comment formerly next to `Banner` keeps its contents.
+
+### Order several resources in one file
+
+Suppose the SSH client file starts with five host blocks in reverse order:
+`production`, `staging`, `qa`, `test`, `dev`. Describe their desired neighbors
+in one task. Each selector identifies a block by its host pattern, so its
+settings move with it.
+
+```yaml
+- name: Keep the five SSH host blocks together
+  soupglasses.augeas.augeas:
+    file: /etc/ssh/ssh_config
+    lens: Ssh
+    resources:
+      - path: 'Host[. = "staging"]'
+        immediately_before: 'Host[. = "production"]'
+      - path: 'Host[. = "qa"]'
+        immediately_before: 'Host[. = "staging"]'
+      - path: 'Host[. = "test"]'
+        immediately_before: 'Host[. = "qa"]'
+      - path: 'Host[. = "dev"]'
+        immediately_before: 'Host[. = "test"]'
+        config:
+          ServerAliveInterval: "30"
+```
+
+The first run updates the `dev` setting and writes the file once, with the
+blocks in the order `dev`, `test`, `qa`, `staging`, `production`. The second
+run reports `changed: false`. Reordering the declarations in `resources`
+gives the same result. Check mode previews the combined change without
+replacing the file.
+
 ## Install
 
 The collection requires ansible-core 2.18 or newer:
