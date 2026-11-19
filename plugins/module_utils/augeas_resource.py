@@ -1,6 +1,27 @@
 # Copyright (c) 2026, Sofie Finnes <sofie+git@finnes.dev>
 # GNU General Public License v3.0+ (see https://www.gnu.org/licenses/gpl-3.0.txt)
 
+"""Apply a resource state to one file's Augeas tree.
+
+The YAML codec converts between the module's ``config`` and Augeas paths:
+``flatten_config`` turns a desired tree into ``(relative path, value)`` entries,
+and ``encode_config`` turns a read ``TreeNode`` back into the same YAML shape.
+
+``AugeasResource`` loads one file through one lens and runs a state:
+
+1. Resolve ``path`` to at most one node and read its tree as ``before``.
+2. Set, clear, or remove nodes for the state. A missing predicate-selected node
+   is inserted beside its siblings when the existing tree shows where it belongs.
+3. Compare a fingerprint of the whole file tree, formatting nodes included,
+   with the one taken before the change.
+4. When it changed, save. With a validator or commit callback, Augeas writes a
+   ``.augnew`` candidate that is validated, then committed outside check mode.
+   Otherwise check mode uses a no-op save.
+
+Every path a step selects must stay inside the managed file, or inside the
+selected subtree once it exists.
+"""
+
 from __future__ import annotations
 
 import os

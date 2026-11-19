@@ -6,8 +6,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from ansible_collections.soupglasses.augeas.plugins.module_utils import resource as resource_module
-from ansible_collections.soupglasses.augeas.plugins.module_utils.resource import (
+from ansible_collections.soupglasses.augeas.plugins.module_utils import (
+    augeas_resource as resource_module,
+)
+from ansible_collections.soupglasses.augeas.plugins.module_utils.augeas_resource import (
     AugeasResource,
     AugeasResourceError,
     ConfigError,

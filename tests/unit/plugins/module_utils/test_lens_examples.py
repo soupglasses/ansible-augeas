@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from ansible_collections.soupglasses.augeas.plugins.module_utils.resource import (
+from ansible_collections.soupglasses.augeas.plugins.module_utils.augeas_resource import (
     AugeasResource,
 )
 

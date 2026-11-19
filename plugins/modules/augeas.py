@@ -184,7 +184,7 @@ from ansible.module_utils.basic import (
     AnsibleModule,
     missing_required_lib,
 )
-from ansible_collections.soupglasses.augeas.plugins.module_utils.resource import (
+from ansible_collections.soupglasses.augeas.plugins.module_utils.augeas_resource import (
     AUGEAS_IMPORT_ERROR,
     HAS_AUGEAS,
     AugeasResource,
