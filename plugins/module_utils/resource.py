@@ -74,14 +74,7 @@ def _mapping_key(key, location):
         raise ConfigError(f"{location} must not use parent path steps")
     if _INDEX_RE.sub("", key.split("/", 1)[0]) in _FORMATTING_LABELS:
         raise ConfigError(f"{location} cannot manage Augeas formatting nodes")
-    if key.startswith("$$"):
-        return key[1:]
-    if key.startswith("$"):
-        raise ConfigError(
-            f"{location} uses reserved key {key!r}; "
-            "double the first dollar sign for a literal label"
-        )
-    return key
+    return _unescape_label(key, location, "key")
 
 
 def _literal_label(label, location):
@@ -95,14 +88,22 @@ def _literal_label(label, location):
         raise ConfigError(f"{location} has a label that Augeas cannot address: {label!r}")
     if label in _FORMATTING_LABELS:
         raise ConfigError(f"{location} cannot manage Augeas formatting nodes")
+    return _unescape_label(label, location, "label")
+
+
+def _unescape_label(label, location, noun):
     if label.startswith("$$"):
         return label[1:]
     if label.startswith("$"):
         raise ConfigError(
-            f"{location} uses reserved label {label!r}; "
+            f"{location} uses reserved {noun} {label!r}; "
             "double the first dollar sign for a literal label"
         )
     return label
+
+
+def _is_sequence(value):
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes))
 
 
 def _relative_path(parent, child):
@@ -122,14 +123,18 @@ def _child_entry(entry, location):
     return _literal_label(label, location), body
 
 
-def _decode_children(children, parent, entries, location):
-    if not isinstance(children, Sequence) or isinstance(children, (str, bytes)):
-        raise ConfigError(f"{location}.$children must be a sequence")
-
-    parsed = [
+def _child_entries(children, location):
+    return [
         _child_entry(entry, f"{location}.$children[{index}]")
         for index, entry in enumerate(children)
     ]
+
+
+def _decode_children(children, parent, entries, location):
+    if not _is_sequence(children):
+        raise ConfigError(f"{location}.$children must be a sequence")
+
+    parsed = _child_entries(children, location)
     occurrences = Counter()
 
     for index, (label, body) in enumerate(parsed):
@@ -151,26 +156,19 @@ def _decode_mapping(body, parent, entries, location):
     if unknown_controls:
         raise ConfigError(f"{location} contains unknown control key {unknown_controls[0]!r}")
 
-    ordinary = [key for key in body if key not in ("$children", "$value")]
+    ordinary = [key for key in body if key not in _CONTROL_KEYS]
     if "$children" in body and ordinary:
         raise ConfigError(f"{location} cannot mix $children with ordinary child keys")
 
-    emitted = False
     if "$value" in body:
         entries.append((parent, _string_value(body["$value"], f"{location}.$value")))
-        emitted = True
-
     if "$children" in body:
         _decode_children(body["$children"], parent, entries, location)
-        if not body["$children"] and parent and not emitted:
-            entries.append((parent, None))
-        return
-
     for key in ordinary:
         child = _mapping_key(key, location)
         _decode_body(body[key], _relative_path(parent, child), entries, f"{location}.{child}")
 
-    if not body and parent:
+    if parent and "$value" not in body and not ordinary and not body.get("$children"):
         entries.append((parent, None))
 
 
@@ -178,7 +176,7 @@ def _decode_body(body, parent, entries, location):
     if isinstance(body, Mapping):
         _decode_mapping(body, parent, entries, location)
         return
-    if isinstance(body, Sequence) and not isinstance(body, (str, bytes)):
+    if _is_sequence(body):
         if not body:
             if parent:
                 entries.append((parent, None))
@@ -193,7 +191,7 @@ def _decode_body(body, parent, entries, location):
 
 
 def flatten_config(config):
-    if not isinstance(config, (Mapping, Sequence)) or isinstance(config, (str, bytes)):
+    if not (isinstance(config, Mapping) or _is_sequence(config)):
         raise ConfigError("config must be a mapping or sequence")
 
     entries = []
@@ -201,16 +199,14 @@ def flatten_config(config):
 
     paths = [path for path, _value in entries]
     normalized = []
+    seen = set()
     for path, value in entries:
         if value is None and path and any(other.startswith(path + "/") for other in paths):
             continue
-        normalized.append((path, value))
-
-    seen = set()
-    for path, _value in normalized:
         if path in seen:
             raise ConfigError(f"config describes Augeas path {path!r} more than once")
         seen.add(path)
+        normalized.append((path, value))
     return normalized
 
 
@@ -218,40 +214,37 @@ def _is_numeric_sequence(children):
     return all(_NUMERIC_RE.fullmatch(child.label) for child in children)
 
 
-def _has_parent_step(expression):
+def _path_segments(expression):
     quote = None
     bracket_depth = 0
-    segment = []
+    start = 0
     segments = []
 
-    for character in expression:
+    for index, character in enumerate(expression):
         if quote is not None:
-            segment.append(character)
             if character == quote:
                 quote = None
-            continue
-        if character in ("'", '"'):
+        elif character in ("'", '"'):
             quote = character
-            segment.append(character)
         elif character == "[":
             bracket_depth += 1
-            segment.append(character)
         elif character == "]":
             bracket_depth = max(0, bracket_depth - 1)
-            segment.append(character)
         elif character == "/" and bracket_depth == 0:
-            segments.append("".join(segment))
-            segment = []
-        else:
-            segment.append(character)
-    segments.append("".join(segment))
-    return ".." in segments
+            segments.append(expression[start:index])
+            start = index + 1
+    segments.append(expression[start:])
+    return segments
+
+
+def _has_parent_step(expression):
+    return ".." in _path_segments(expression)
 
 
 def _uses_ordered_children(body):
     if isinstance(body, Mapping):
         return "$children" in body or any(_uses_ordered_children(value) for value in body.values())
-    if isinstance(body, Sequence) and not isinstance(body, (str, bytes)):
+    if _is_sequence(body):
         return any(_uses_ordered_children(value) for value in body)
     return False
 
@@ -261,8 +254,7 @@ def _uses_path_expressions(body):
         if "$children" in body:
             return any(
                 _uses_path_expressions(child_body)
-                for index, entry in enumerate(body["$children"])
-                for _label, child_body in (_child_entry(entry, f"config.$children[{index}]"),)
+                for _label, child_body in _child_entries(body["$children"], "config")
             )
         for key, child_body in body.items():
             if key == "$value":
@@ -272,7 +264,7 @@ def _uses_path_expressions(body):
                 return True
             if _uses_path_expressions(child_body):
                 return True
-    elif isinstance(body, Sequence) and not isinstance(body, (str, bytes)):
+    elif _is_sequence(body):
         return any(_uses_path_expressions(value) for value in body)
     return False
 
@@ -281,18 +273,14 @@ def _node_parts(body, location):
     if isinstance(body, Mapping):
         value = _string_value(body.get("$value"), f"{location}.$value")
         if "$children" in body:
-            children = [
-                _child_entry(entry, f"{location}.$children[{index}]")
-                for index, entry in enumerate(body["$children"])
-            ]
-            return value, children, True
+            return value, _child_entries(body["$children"], location), True
         children = [
             (_mapping_key(key, location), child_body)
             for key, child_body in body.items()
             if key != "$value"
         ]
         return value, children, False
-    if isinstance(body, Sequence) and not isinstance(body, (str, bytes)):
+    if _is_sequence(body):
         children = [(str(index), child_body) for index, child_body in enumerate(body, 1)]
         return None, children, True
     return _string_value(body, location), [], False
@@ -353,28 +341,18 @@ def _encode_node(node, root=False):
             return {} if node.value is None else {"$value": node.value}
         return node.value
 
-    labels = [child.label for child in node.children]
-    if _is_numeric_sequence(node.children):
-        bodies = [_encode_node(child) for child in node.children]
-        if node.value is None:
-            return bodies
-        children = {"$value": node.value}
-        for child, body in zip(node.children, bodies):
-            children[child.label] = body
-        return children
-    if len(labels) != len(set(labels)):
-        children = {"$children": [_encoded_child(child) for child in node.children]}
-        if node.value is not None:
-            children = {"$value": node.value, **children}
-        return children
+    numeric = _is_numeric_sequence(node.children)
+    if numeric and node.value is None:
+        return [_encode_node(child) for child in node.children]
 
-    children = {}
-    if node.value is not None:
-        children["$value"] = node.value
-    for child in node.children:
-        label = "$" + child.label if child.label.startswith("$") else child.label
-        children[label] = _encode_node(child)
-    return children
+    encoded = {} if node.value is None else {"$value": node.value}
+    labels = [child.label for child in node.children]
+    if not numeric and len(labels) != len(set(labels)):
+        encoded["$children"] = [_encoded_child(child) for child in node.children]
+    else:
+        for child in node.children:
+            encoded.update(_encoded_child(child))
+    return encoded
 
 
 def encode_config(node):
@@ -390,32 +368,6 @@ def _normalized_value(value):
 def _canonical_label(path):
     segment = path.rsplit("/", 1)[-1]
     return _INDEX_RE.sub("", segment)
-
-
-def _split_last_path(path):
-    quote = None
-    bracket_depth = 0
-    separator = -1
-
-    for index, character in enumerate(path):
-        if quote is not None:
-            if character == quote:
-                quote = None
-            continue
-        if character in ("'", '"'):
-            quote = character
-        elif character == "[":
-            bracket_depth += 1
-        elif character == "]":
-            bracket_depth = max(0, bracket_depth - 1)
-        elif character == "/" and bracket_depth == 0:
-            separator = index
-
-    return path[:separator], path[separator + 1 :]
-
-
-def _path_label(path):
-    return _split_last_path(path)[1].split("[", 1)[0]
 
 
 def _is_formatting(path):
@@ -477,7 +429,7 @@ class AugeasResource:
         self.source_path = os.path.join(root or os.sep, self.file.lstrip("/"))
 
         flags = Augeas.NO_LOAD | Augeas.NO_MODL_AUTOLOAD
-        if validator is not None or (commit is not None and not check_mode):
+        if self.candidate_save:
             flags |= Augeas.SAVE_NEWFILE
         elif check_mode:
             flags |= Augeas.SAVE_NOOP
@@ -526,9 +478,9 @@ class AugeasResource:
     def _resolve_base(self):
         try:
             matches = self._confined_matches(self.base_expression, f"path {self.path!r}")
+        except AugeasResourceError:
+            raise
         except Exception as error:
-            if isinstance(error, AugeasResourceError):
-                raise
             raise AugeasResourceError(f"invalid Augeas path {self.path!r}: {error}") from error
         if len(matches) > 1:
             raise AugeasResourceError(
@@ -586,57 +538,35 @@ class AugeasResource:
         return tuple(visit(path) for path in matches)
 
     def _set_entries(self, base, entries, base_exists):
+        boundary = base if base_exists else None
         for relative, value in entries:
             full_path = _join_path(base, relative)
-            boundary = base if base_exists else None
-            matches = self._confined_matches(
-                full_path,
-                f"config path {relative!r}",
-                boundary=boundary,
-            )
+            description = f"config path {relative!r}"
+            matches = self._confined_matches(full_path, description, boundary=boundary)
             if len(matches) > 1:
                 raise AugeasResourceError(
-                    f"config path {relative!r} selects {len(matches)} nodes; "
+                    f"{description} selects {len(matches)} nodes; "
                     "use $children, an index, or a predicate"
                 )
             try:
                 target = (
                     matches[0]
                     if matches
-                    else self._creation_target(
-                        full_path,
-                        f"config path {relative!r}",
-                        boundary=boundary,
-                    )
+                    else self._creation_target(full_path, description, boundary=boundary)
                 )
                 if value is None:
                     self._clear_value(target)
                 else:
                     self.aug.set(target, value)
-                base_matches = self._confined_matches(
-                    self.base_expression,
-                    f"path {self.path!r}",
-                )
+                base_matches = self._confined_matches(self.base_expression, f"path {self.path!r}")
                 if len(base_matches) != 1:
-                    raise AugeasResourceError(
-                        f"config path {relative!r} did not create one selected subtree"
-                    )
-                base = base_matches[0]
-                base_exists = True
-                created = self._confined_matches(
-                    full_path,
-                    f"config path {relative!r}",
-                    boundary=base,
-                )
-                if not created:
-                    self._confined_matches(
-                        target,
-                        f"config path {relative!r}",
-                        boundary=base,
-                    )
+                    raise AugeasResourceError(f"{description} did not create one selected subtree")
+                boundary = base = base_matches[0]
+                if not self._confined_matches(full_path, description, boundary=base):
+                    self._confined_matches(target, description, boundary=base)
+            except AugeasResourceError:
+                raise
             except Exception as error:
-                if isinstance(error, AugeasResourceError):
-                    raise
                 raise AugeasResourceError(
                     f"could not set config path {relative!r}: {error}"
                 ) from error
@@ -644,8 +574,9 @@ class AugeasResource:
     def _creation_target(self, expression, description, boundary=None):
         """Insert a missing sibling when its existing tree reveals its position."""
         creation_path = _creation_path(expression)
-        parent_expression, segment = _split_last_path(creation_path)
-        label = _path_label(segment)
+        *parent_segments, segment = _path_segments(creation_path)
+        parent_expression = "/".join(parent_segments)
+        label = segment.split("[", 1)[0]
         parents = self._confined_matches(
             parent_expression,
             f"{description} parent",
@@ -742,12 +673,11 @@ class AugeasResource:
     def run(self, state, config=None):
         base, base_exists = self._resolve_base()
         before = self._configuration(base) if base_exists else {}
-        before_fingerprint = self._fingerprint()
-        base_removed = False
-
         if state == "gathered":
             return {"changed": False, "gathered": before}
 
+        before_fingerprint = self._fingerprint()
+        base_removed = False
         entries = flatten_config(config) if config is not None else []
         if state == "merged":
             self._set_entries(base, entries, base_exists)
@@ -755,7 +685,7 @@ class AugeasResource:
             if not _configurations_match(before, config):
                 if base_exists:
                     self._clear_children(base)
-                    if not any(relative == "" for relative, _value in entries):
+                    if all(relative for relative, _value in entries):
                         self._clear_value(base)
                 self._set_entries(base, entries, base_exists)
         elif state == "deleted":
@@ -771,11 +701,12 @@ class AugeasResource:
                     )
                 base_removed = base in matches
                 self._remove_paths(matches)
-            elif self.path and base_exists:
-                self._remove_paths((base,))
-                base_removed = True
-            elif not self.path and base_exists:
-                self._clear_children(base)
+            elif base_exists:
+                if self.path:
+                    self._remove_paths((base,))
+                    base_removed = True
+                else:
+                    self._clear_children(base)
         else:
             raise AugeasResourceError(f"unsupported state {state!r}")
 

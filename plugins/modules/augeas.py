@@ -179,7 +179,11 @@ diff:
 import os
 import shlex
 
-from ansible.module_utils.basic import AnsibleModule, missing_required_lib
+from ansible.module_utils.basic import (
+    FILE_COMMON_ARGUMENTS,
+    AnsibleModule,
+    missing_required_lib,
+)
 from ansible_collections.soupglasses.augeas.plugins.module_utils.resource import (
     AUGEAS_IMPORT_ERROR,
     HAS_AUGEAS,
@@ -219,24 +223,17 @@ def main():
                 reason=AUGEAS_IMPORT_ERROR,
             )
         )
-    if module.params["state"] == "gathered" and module.params["config"] is not None:
-        module.fail_json(msg="config is not valid with state=gathered")
-    if module.params["state"] == "gathered" and module.params["validate"] is not None:
-        module.fail_json(msg="validate is not valid with state=gathered")
-    file_attribute_names = (
-        "mode",
-        "owner",
-        "group",
-        "seuser",
-        "serole",
-        "setype",
-        "selevel",
-        "attributes",
-    )
-    if module.params["state"] == "gathered" and any(
-        module.params[name] is not None for name in file_attribute_names
-    ):
-        module.fail_json(msg="file attributes are not valid with state=gathered")
+    if module.params["state"] == "gathered":
+        if module.params["config"] is not None:
+            module.fail_json(msg="config is not valid with state=gathered")
+        if module.params["validate"] is not None:
+            module.fail_json(msg="validate is not valid with state=gathered")
+        if any(
+            module.params[name] is not None
+            for name in FILE_COMMON_ARGUMENTS
+            if name != "unsafe_writes"
+        ):
+            module.fail_json(msg="file attributes are not valid with state=gathered")
 
     validate = module.params["validate"]
     validation_command = None
