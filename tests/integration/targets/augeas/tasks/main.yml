@@ -7,6 +7,9 @@
         prefix: ansible-augeas-
       register: augeas_test_tmp
 
+    - name: Exercise declarative sibling placement
+      ansible.builtin.include_tasks: placement.yml
+
     - name: Create the test sshd configuration
       ansible.builtin.copy:
         dest: "{{ augeas_test_tmp.path }}/sshd_config"

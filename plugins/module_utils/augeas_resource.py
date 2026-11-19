@@ -12,6 +12,8 @@ and ``encode_config`` turns a read ``TreeNode`` back into the same YAML shape.
 1. Resolve ``path`` to at most one node and read its tree as ``before``.
 2. Set, clear, or remove nodes for the state. A missing predicate-selected node
    is inserted beside its siblings when the existing tree shows where it belongs.
+   With an anchor, the selected node then moves past any anchor sibling it is on
+   the wrong side of.
 3. Compare a fingerprint of the whole file tree, formatting nodes included,
    with the one taken before the change.
 4. When it changed, save. With a validator or commit callback, Augeas writes a
@@ -27,9 +29,16 @@ from __future__ import annotations
 import os
 import posixpath
 import re
-from collections import Counter
+import shutil
+import tempfile
+from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
+from copy import copy
 from dataclasses import dataclass
+
+from ansible_collections.soupglasses.augeas.plugins.module_utils.augeas_order import (
+    apply_constraints,
+)
 
 try:
     from _augeas import ffi as augeas_ffi
@@ -45,6 +54,7 @@ else:
 
 
 HAS_AUGEAS = Augeas is not None
+PLACEMENT_KEYS = ("before", "after", "immediately_before", "immediately_after")
 
 _CONTROL_KEYS = frozenset(("$children", "$value"))
 _FORMATTING_LABELS = frozenset(("#comment", "#empty"))
@@ -61,11 +71,54 @@ class ConfigError(AugeasResourceError):
     pass
 
 
+def placement_from_params(params):
+    placements = [key for key in PLACEMENT_KEYS if params.get(key) is not None]
+    if len(placements) > 1:
+        raise ConfigError(f"invalid placement options for {params.get('path', '')!r}")
+    if not placements:
+        return None, False, False
+    key = placements[0]
+    return params[key], key.endswith("after"), key.startswith("immediately_")
+
+
 @dataclass(frozen=True)
 class TreeNode:
     label: str
     value: str | None
     children: tuple[TreeNode, ...]
+
+
+@dataclass
+class _Declaration:
+    path: str
+    state: str
+    config: object
+    entries: list
+    anchor: str | None
+    after: bool
+    immediate: bool
+
+    @classmethod
+    def from_params(cls, params):
+        path = params.get("path", "")
+        state = params.get("state", "merged")
+        config = params.get("config")
+        if state not in ("merged", "replaced", "deleted"):
+            raise ConfigError(f"unsupported resource state {state!r}")
+        anchor, after, immediate = placement_from_params(params)
+        if anchor is not None and state == "deleted":
+            raise ConfigError(f"invalid placement options for {path!r}")
+        if config is None and (state == "replaced" or (state == "merged" and anchor is None)):
+            raise ConfigError(f"missing config for {path!r}")
+        return cls(
+            path,
+            state,
+            config,
+            flatten_config(config) if config is not None else [],
+            anchor,
+            after,
+            immediate,
+        )
 
 
 def _string_value(value, location):
@@ -349,35 +402,35 @@ def _configurations_match(current_config, desired_config, desired_entries):
     return dict(current) == dict(desired_entries)
 
 
-def _encoded_child(node):
-    body = _encode_node(node)
+def _encoded_child(node, ordered=False):
+    body = _encode_node(node, ordered=ordered)
     label = "$" + node.label if node.label.startswith("$") else node.label
     return {label: body}
 
 
-def _encode_node(node, root=False):
+def _encode_node(node, root=False, ordered=False):
     if not node.children:
         if root:
             return {} if node.value is None else {"$value": node.value}
         return node.value
 
-    if node.value is None and _is_numeric_sequence(node.children):
+    if not ordered and node.value is None and _is_numeric_sequence(node.children):
         return [_encode_node(child) for child in node.children]
 
     encoded = {} if node.value is None else {"$value": node.value}
     labels = [child.label for child in node.children]
-    if len(labels) != len(set(labels)):
-        encoded["$children"] = [_encoded_child(child) for child in node.children]
+    if ordered or len(labels) != len(set(labels)):
+        encoded["$children"] = [_encoded_child(child, ordered) for child in node.children]
     else:
         for child in node.children:
             encoded.update(_encoded_child(child))
     return encoded
 
 
-def encode_config(node):
+def encode_config(node, *, ordered=False):
     if node is None:
         return {}
-    return _encode_node(node, root=True)
+    return _encode_node(node, root=True, ordered=ordered)
 
 
 def _normalized_value(value):
@@ -431,16 +484,11 @@ class AugeasResource:
             raise AugeasResourceError("file must identify one literal file, not a glob")
         if not isinstance(lens, str) or not lens:
             raise AugeasResourceError("lens must be a non-empty string")
-        if not isinstance(path, str) or path.startswith("/"):
-            raise AugeasResourceError("path must be relative to the Augeas file tree")
-        if _has_parent_step(path):
-            raise AugeasResourceError("path must not use parent path steps")
-
         self.file = posixpath.normpath(file)
         self.lens = lens
-        self.path = path.strip("/")
+        self.load_path = load_path
         self.tree_path = f"/files{self.file}"
-        self.base_expression = _join_path(self.tree_path, self.path)
+        self._select_path(path)
         self.check_mode = check_mode
         self.validator = validator
         self.commit = commit or os.replace
@@ -494,6 +542,14 @@ class AugeasResource:
                 f"Augeas {operation} failed for {self.file}: {'; '.join(errors)}"
             )
 
+    def _select_path(self, path):
+        if not isinstance(path, str) or path.startswith("/"):
+            raise AugeasResourceError("path must be relative to the Augeas file tree")
+        if _has_parent_step(path):
+            raise AugeasResourceError("path must not use parent path steps")
+        self.path = path.strip("/")
+        self.base_expression = _join_path(self.tree_path, self.path)
+
     def _resolve_base(self):
         try:
             matches = self._confined_matches(self.base_expression, f"path {self.path!r}")
@@ -543,10 +599,9 @@ class AugeasResource:
             return {}
         return encode_config(self._read_node(matches[0], include_formatting=False))
 
-    def _fingerprint(self):
+    def _fingerprint(self, scope):
         return tuple(
-            self._read_node(path, include_formatting=True)
-            for path in self.aug.match(self.tree_path)
+            self._read_node(path, include_formatting=True) for path in self.aug.match(scope)
         )
 
     def _set_entries(self, base, entries, base_exists):
@@ -647,8 +702,10 @@ class AugeasResource:
             child for child in self.aug.match(base + "/*") if not _is_formatting(child)
         )
 
-    def _save(self):
-        candidate = self.source_path + ".augnew" if self.candidate_save else None
+    def _save(self, verify=None):
+        if verify is not None:
+            self.aug.set("/augeas/save", "newfile")
+        candidate = self.source_path + ".augnew" if self.candidate_save or verify else None
         if candidate is not None and os.path.lexists(candidate):
             raise AugeasResourceError(
                 f"refusing to overwrite existing Augeas candidate {candidate}"
@@ -664,6 +721,15 @@ class AugeasResource:
         if candidate is None:
             return
         try:
+            if verify is not None:
+                try:
+                    verify(candidate)
+                except AugeasResourceError:
+                    raise
+                except Exception as error:
+                    raise AugeasResourceError(
+                        f"could not verify placement in {self.file}: {error}"
+                    ) from error
             if self.validator is not None:
                 try:
                     self.validator(candidate)
@@ -682,50 +748,260 @@ class AugeasResource:
             if os.path.lexists(candidate):
                 os.unlink(candidate)
 
-    def run(self, state, config=None):
+    def _relation(self, base, anchor, after, immediate):
+        if not anchor or anchor.startswith("/") or _has_parent_step(anchor):
+            raise AugeasResourceError("anchor must select siblings of path, relative to the parent")
+        try:
+            (parent,) = self.aug.match(base + "/..")
+            anchors = self._confined_matches(
+                _join_path(parent, anchor), f"anchor {anchor!r}", parent
+            )
+        except Exception as error:
+            raise AugeasResourceError(f"invalid anchor {anchor!r}: {error}") from error
+        return parent, (base, anchors, after, immediate)
+
+    def _order_siblings(self, parent, siblings, relations):
+        try:
+            return apply_constraints(self.aug, parent, siblings, relations)
+        except Exception as error:
+            raise AugeasResourceError(f"cannot place siblings under {parent!r}: {error}") from error
+
+    def _place(self, base, anchor, after, immediate):
+        parent, relation = self._relation(base, anchor, after, immediate)
+        siblings = self.aug.match(parent + "/*")
+        order = self._order_siblings(parent, siblings, [relation])
+        end = order.index(base)
+        if self._resolve_base() != (self.aug.match(parent + "/*")[end], True):
+            raise AugeasResourceError(f"path {self.path!r} no longer selects the moved node")
+        return siblings.index(base) + 1, end + 1
+
+    def _selected_location(self):
+        # Sequence labels can be regenerated on load. Child offsets identify the
+        # intended slot even when the reparsed node has a different label.
+        node, exists = self._resolve_base()
+        if not exists:
+            return None
+        return self._location(node)
+
+    def _location(self, node):
+        offsets = []
+        while node != self.tree_path:
+            (parent,) = self.aug.match(node + "/..")
+            offsets.append(self.aug.match(parent + "/*").index(node))
+            node = parent
+        return tuple(reversed(offsets))
+
+    def run(self, state, config=None, *, anchor=None, place_after=False, immediate=False):
+        placement = dict(anchor=anchor, place_after=place_after, immediate=immediate)
+        result = self._reconcile(state, config, **placement)
+        if not result["changed"]:
+            return result
+
+        def verify(parsed):
+            if parsed._selected_location() != self._selected_location():
+                raise AugeasResourceError(
+                    f"path {self.path!r} selects a different node after rendering"
+                )
+            if parsed._reconcile(state, config, **placement)["changed"]:
+                raise AugeasResourceError("placement would change again on a second run")
+
+        if anchor is not None:
+            self._save_verified(verify)
+        else:
+            self._save()
+        return result
+
+    def _resource_views(self, declarations):
+        for declaration in declarations:
+            # Views share one loaded tree. Only the file-level owner saves and closes it.
+            view = copy(self)
+            view._select_path(declaration.path)
+            yield declaration, view
+
+    def _verify_resources(self, declarations, locations):
+        for (decl, view), expected in zip(self._resource_views(declarations), locations):
+            if view._selected_location() != expected:
+                raise AugeasResourceError(f"path {decl.path!r} no longer selects its declared node")
+            result = view._reconcile(
+                decl.state,
+                decl.config,
+                anchor=decl.anchor,
+                place_after=decl.after,
+                immediate=decl.immediate,
+                entries=decl.entries,
+            )
+            if result["changed"]:
+                raise AugeasResourceError(
+                    f"conflicting declarations: resource at {decl.path!r} "
+                    "would change again on a second run"
+                )
+
+    def run_resources(self, resources):
+        declarations = [_Declaration.from_params(params) for params in resources]
+        # Create parents before children. Use stable tie breaks for independent
+        # creations when no sibling order was specified.
+        declarations.sort(
+            key=lambda d: (len(_path_segments(d.path)), d.path, d.state, repr(d.entries))
+        )
+        before = self._fingerprint(self.tree_path)
+        views = list(self._resource_views(declarations))
+        # A preceding content edit can renumber a selector such as entry[2].
+        # Bind existing subjects before editing so another declaration cannot
+        # accidentally update the record that shifts into its place.
+        bound = {}
+        for i, (decl, view) in enumerate(views):
+            if decl.path in bound:
+                continue
+            base, exists = view._resolve_base()
+            if exists:
+                name = f"resource_subject_{i}"
+                self.aug.defvar(name, base)
+                bound[decl.path] = "$" + name
+
+        def resolve_subject(decl, view):
+            base, exists = view._resolve_base()
+            if exists and decl.path in bound:
+                original = self.aug.match(bound[decl.path])
+                if original and original != [base]:
+                    raise AugeasResourceError(
+                        f"path {decl.path!r} changed identity during reconciliation"
+                    )
+            return base, exists
+
+        for decl, view in views:
+            if decl.config is None and decl.state == "merged":
+                continue  # Its target may be created by another declaration.
+            base, exists = resolve_subject(decl, view)
+            unchanged = decl.state == "replaced" and _configurations_match(
+                view._configuration(base), decl.config, decl.entries
+            )
+            view._apply_content(decl.state, decl.config, decl.entries, base, exists, unchanged)
+
+        groups = defaultdict(list)
+        locations = []
+        for decl, view in views:
+            base, exists = resolve_subject(decl, view)
+            locations.append(self._location(base) if exists else None)
+            if decl.anchor is not None:
+                if not exists or base == self.tree_path:
+                    raise AugeasResourceError(
+                        f"placement requires {decl.path!r} to select one node below the file root"
+                    )
+                parent, relation = view._relation(base, decl.anchor, decl.after, decl.immediate)
+                groups[parent].append(relation)
+
+        self._place_groups(groups, locations)
+        self._verify_resources(declarations, locations)
+        after = self._fingerprint(self.tree_path)
+        changed = before != after
+        if changed:
+            self._save_verified(lambda parsed: parsed._verify_resources(declarations, locations))
+        original = encode_config(next(iter(before), None), ordered=True)
+        updated = encode_config(next(iter(after), None), ordered=True) if changed else original
+        return {"changed": changed, "before": original, "after": updated}
+
+    def _place_groups(self, groups, locations):
+        # Moving an ancestor can renumber every path below it. Solve inner groups
+        # first and carry each selected node's document location through each move.
+        for parent in sorted(groups, key=lambda p: (-p.count("/"), p)):
+            prefix = self._location(parent)
+            siblings = self.aug.match(parent + "/*")
+            order = self._order_siblings(parent, siblings, groups[parent])
+            if order == siblings:
+                continue
+            depth = len(prefix)
+            indexes = {node: i for i, node in enumerate(order)}
+            for i, location in enumerate(locations):
+                if location is not None and len(location) > depth and location[:depth] == prefix:
+                    new_index = indexes[siblings[location[depth]]]
+                    locations[i] = (*prefix, new_index, *location[depth + 1 :])
+
+    def _save_verified(self, verify):
+        def verify_candidate(candidate):
+            with tempfile.TemporaryDirectory() as root:
+                target = os.path.join(root, self.file.lstrip("/"))
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                shutil.copyfile(candidate, target)
+                parsed = AugeasResource(self.file, self.lens, self.path, self.load_path, root=root)
+                try:
+                    verify(parsed)
+                finally:
+                    parsed.close()
+
+        self._save(verify_candidate)
+
+    def _reconcile(self, state, config, *, anchor, place_after, immediate, entries=None):
+        if anchor is not None and state not in ("merged", "replaced"):
+            raise AugeasResourceError("placement options require state=merged or replaced")
+
         base, base_exists = self._resolve_base()
+        if anchor is not None and base == self.tree_path:
+            raise AugeasResourceError("placement options require path to select a node in the file")
         before = self._configuration(base) if base_exists else {}
         if state == "gathered":
             return {"changed": False, "gathered": before}
 
-        entries = flatten_config(config) if config is not None else []
-        if state == "replaced" and _configurations_match(before, config, entries):
+        if entries is None:
+            entries = flatten_config(config) if config is not None else []
+        unchanged = state == "replaced" and _configurations_match(before, config, entries)
+        if unchanged and anchor is None:
             return {"changed": False, "before": before, "after": before}
 
-        before_fingerprint = self._fingerprint()
-        base_removed = False
-        if state == "merged":
-            self._set_entries(base, entries, base_exists)
-        elif state == "replaced":
-            if base_exists:
+        # A merge only edits the selected subtree. Deleting a node can make
+        # its old path resolve to its next sibling, so compare the whole file.
+        scope = (
+            base if base_exists and (state == "merged" or anchor is not None) else self.tree_path
+        )
+        compare_contents = not unchanged and (state != "merged" or bool(entries))
+        before_fingerprint = self._fingerprint(scope) if compare_contents else None
+        base_removed = self._apply_content(state, config, entries, base, base_exists, unchanged)
+
+        changed = compare_contents and before_fingerprint != self._fingerprint(scope)
+        placement_diff = None
+        if anchor is not None:
+            node, exists = self._resolve_base()
+            if not exists or node == self.tree_path:
+                raise AugeasResourceError(
+                    "placement requires path to select a node after applying config"
+                )
+            start, end = self._place(node, anchor, place_after, immediate)
+            changed = changed or start != end
+            placement_diff = {"before": start if base_exists else None, "after": end}
+            base = self.base_expression
+        after = {} if base_removed else self._configuration(base)
+        result = {"changed": changed, "before": before, "after": after}
+        if placement_diff is not None:
+            result["position"] = placement_diff
+        return result
+
+    def _apply_content(self, state, config, entries, base, base_exists, unchanged):
+        if state in ("merged", "replaced"):
+            if unchanged:
+                return False
+            if state == "replaced" and base_exists:
                 self._clear_children(base)
                 if all(relative for relative, _value in entries):
                     self._clear_value(base)
             self._set_entries(base, entries, base_exists)
-        elif state == "deleted":
-            if config is not None:
-                matches = []
-                for relative, _value in entries:
-                    matches.extend(
-                        self._confined_matches(
-                            _join_path(base, relative),
-                            f"config path {relative!r}",
-                            boundary=base if base_exists else None,
-                        )
-                    )
-                base_removed = base in matches
-                self._remove_paths(matches)
-            elif base_exists:
-                if self.path:
-                    self._remove_paths((base,))
-                    base_removed = True
-                else:
-                    self._clear_children(base)
-        else:
+            return False
+        if state != "deleted":
             raise AugeasResourceError(f"unsupported state {state!r}")
 
-        after = {} if base_removed else self._configuration(base)
-        changed = before_fingerprint != self._fingerprint()
-        if changed:
-            self._save()
-        return {"changed": changed, "before": before, "after": after}
+        if config is not None:
+            matches = []
+            for relative, _value in entries:
+                matches.extend(
+                    self._confined_matches(
+                        _join_path(base, relative),
+                        f"config path {relative!r}",
+                        boundary=base if base_exists else None,
+                    )
+                )
+            self._remove_paths(matches)
+            return base in matches
+        if base_exists:
+            if self.path:
+                self._remove_paths((base,))
+                return True
+            self._clear_children(base)
+        return False

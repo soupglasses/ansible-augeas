@@ -45,6 +45,39 @@ options:
       - Colon-separated directory list searched for custom Augeas lenses.
       - Standard Augeas lens directories remain available.
     type: path
+  resources:
+    description:
+      - Apply several declarations to one file and validate the combined result before saving.
+      - Each item accepts the same resource options as a single declaration.
+        Set file options at the top level and resource options inside the list.
+    type: list
+    elements: dict
+    version_added: "1.1.0"
+    suboptions:
+      path:
+        description: Relative Augeas path selecting the resource. See O(path).
+        type: str
+        default: ""
+      state:
+        description: Desired state of this resource. See O(state).
+        type: str
+        choices: [merged, replaced, deleted]
+        default: merged
+      config:
+        description: Desired Augeas tree below this resource's path. See O(config).
+        type: raw
+      before:
+        description: Keep this resource before the matching siblings. See O(before).
+        type: str
+      after:
+        description: Keep this resource after the matching siblings. See O(after).
+        type: str
+      immediately_before:
+        description: Place this resource directly before one sibling. See O(immediately_before).
+        type: str
+      immediately_after:
+        description: Place this resource directly after one sibling. See O(immediately_after).
+        type: str
   path:
     description:
       - Augeas path expression relative to the tree root for O(file).
@@ -52,6 +85,35 @@ options:
       - Parent path steps are not accepted.
     type: str
     default: ""
+  before:
+    description:
+      - Keep the node selected by O(path) before every sibling this Augeas expression selects.
+      - The expression is relative to the parent of O(path) and may select several siblings.
+        The selected node itself is ignored. An expression that selects nothing imposes no order.
+      - The node is moved with its subtree only when it is on the wrong side.
+      - Requires O(path) and O(state=merged) or O(state=replaced).
+    type: str
+    version_added: "1.1.0"
+  after:
+    description:
+      - Keep the node selected by O(path) after every sibling this Augeas expression selects.
+      - Otherwise behaves like O(before).
+    type: str
+    version_added: "1.1.0"
+  immediately_before:
+    description:
+      - Place the entire node selected by O(path) directly before one distinct sibling.
+      - The anchor is an Augeas path expression relative to its parent. A missing or
+        ambiguous anchor fails. All siblings exposed by the lens count, including comments.
+      - Requires O(state=merged) or O(state=replaced).
+    type: str
+    version_added: "1.1.0"
+  immediately_after:
+    description:
+      - Place the entire node selected by O(path) directly after one distinct sibling.
+      - Otherwise behaves like O(immediately_before).
+    type: str
+    version_added: "1.1.0"
   validate:
     description:
       - Command used to validate Augeas-rendered candidate content before it replaces O(file).
@@ -61,7 +123,8 @@ options:
     type: str
   config:
     description:
-      - Desired Augeas tree below O(path).
+      - Desired Augeas tree below O(path). For O(state=merged), omit O(config) to manage only
+        the placement of an existing node.
       - A mapping represents uniquely labelled child nodes.
       - A sequence represents numeric children selected by position.
       - C($children) contains an ordered sequence of named child nodes and permits duplicate labels.
@@ -130,6 +193,16 @@ EXAMPLES = r"""
         - AcceptEnv: [LC_ALL]
     state: replaced
 
+- name: Keep Quad9 as the first resolver
+  soupglasses.augeas.augeas:
+    file: /etc/resolv.conf
+    lens: Resolv
+    path: 'nameserver[. = "9.9.9.9"]'
+    before: nameserver
+    config:
+      $value: "9.9.9.9"
+    state: merged
+
 - name: Gather the Augeas tree
   soupglasses.augeas.augeas:
     file: /etc/ssh/sshd_config
@@ -158,11 +231,11 @@ EXAMPLES = r"""
 
 RETURN = r"""
 before:
-  description: Structured Augeas tree before a mutating state was applied.
+  description: Selected tree before the change, or the full file tree with O(resources).
   returned: state is not gathered
   type: raw
 after:
-  description: Structured Augeas tree after a mutating state was applied.
+  description: Selected tree after the change, or the full file tree with O(resources).
   returned: state is not gathered
   type: raw
 gathered:
@@ -187,28 +260,46 @@ from ansible.module_utils.basic import (
 from ansible_collections.soupglasses.augeas.plugins.module_utils.augeas_resource import (
     AUGEAS_IMPORT_ERROR,
     HAS_AUGEAS,
+    PLACEMENT_KEYS,
     AugeasResource,
     AugeasResourceError,
+    placement_from_params,
 )
 
 
 def main():
+    resource_spec = {
+        "path": {"type": "str", "default": ""},
+        "config": {"type": "raw"},
+        "state": {"type": "str", "choices": ["merged", "replaced", "deleted"], "default": "merged"},
+        **{key: {"type": "str"} for key in PLACEMENT_KEYS},
+    }
+    merged_inputs = ("config", *PLACEMENT_KEYS)
     module = AnsibleModule(
         argument_spec={
+            **resource_spec,
+            "state": {
+                **resource_spec["state"],
+                "choices": [*resource_spec["state"]["choices"], "gathered"],
+            },
             "file": {"type": "path", "required": True},
             "lens": {"type": "str", "required": True},
             "load_path": {"type": "path"},
-            "path": {"type": "str", "default": ""},
             "validate": {"type": "str"},
-            "config": {"type": "raw"},
-            "state": {
-                "type": "str",
-                "choices": ["merged", "replaced", "deleted", "gathered"],
-                "default": "merged",
+            "resources": {
+                "type": "list",
+                "elements": "dict",
+                "options": resource_spec,
+                "mutually_exclusive": [PLACEMENT_KEYS],
+                "required_if": [
+                    ("state", "merged", merged_inputs, True),
+                    ("state", "replaced", ("config",)),
+                ],
             },
         },
+        mutually_exclusive=[PLACEMENT_KEYS, *(("resources", key) for key in resource_spec)],
         required_if=[
-            ("state", "merged", ("config",)),
+            ("state", "merged", (*merged_inputs, "resources"), True),
             ("state", "replaced", ("config",)),
         ],
         add_file_common_args=True,
@@ -274,13 +365,24 @@ def main():
             validator=validator if validation_command is not None else None,
             commit=commit,
         )
-        result = resource.run(module.params["state"], module.params["config"])
+        if module.params["resources"] is not None:
+            result = resource.run_resources(module.params["resources"])
+        else:
+            anchor, after, immediate = placement_from_params(module.params)
+            result = resource.run(
+                module.params["state"],
+                module.params["config"],
+                anchor=anchor,
+                place_after=after,
+                immediate=immediate,
+            )
     except AugeasResourceError as error:
         module.fail_json(msg=str(error))
     finally:
         if resource is not None:
             resource.close()
 
+    position = result.pop("position", None)
     resource_changed = result["changed"]
     attribute_diff = {} if module._diff else None
     attributes_changed = False
@@ -305,6 +407,16 @@ def main():
                     "after_header": f"{module.params['file']} (Augeas tree)",
                     "before": result["before"],
                     "after": result["after"],
+                }
+            )
+        if position and position["before"] != position["after"]:
+            header = f"{module.params['path']} (sibling position)"
+            diffs.append(
+                {
+                    "before_header": header,
+                    "after_header": header,
+                    "before": {"position": position["before"]},
+                    "after": {"position": position["after"]},
                 }
             )
         if attribute_diff:

@@ -831,3 +831,409 @@ def test_initialization_failure_closes_the_augeas_handle(monkeypatch):
         AugeasResource(file="/etc/example.conf", lens="Broken")
 
     assert BrokenAugeas.instance.closed is True
+
+
+QUAD9 = 'nameserver[. = "9.9.9.9"]'
+
+
+def _resolvers(tmp_path, addresses):
+    target = tmp_path / "resolv.conf"
+    target.write_text(
+        "# DNS resolvers\n" + "".join(f"nameserver {address}\n" for address in addresses)
+    )
+    return target
+
+
+def _nameservers(target):
+    return [line.split()[1] for line in target.read_text().splitlines()[1:]]
+
+
+def _place_quad9(tmp_path, check_mode=False, path=QUAD9, **placement):
+    resource = AugeasResource(
+        file="/resolv.conf", lens="Resolv", root=str(tmp_path), check_mode=check_mode, path=path
+    )
+    try:
+        return resource.run("merged", {"$value": "9.9.9.9"}, **placement)
+    finally:
+        resource.close()
+
+
+@pytest.mark.parametrize(
+    ("servers", "anchor", "place_after", "expected"),
+    [
+        ([], "nameserver", False, ["9.9.9.9"]),
+        (["1.1.1.1"], "nameserver", False, ["9.9.9.9", "1.1.1.1"]),
+        (["1.1.1.1", "8.8.8.8", "9.9.9.9"], "nameserver", False, ["9.9.9.9", "1.1.1.1", "8.8.8.8"]),
+        (
+            ["1.1.1.1", "8.8.8.8", "9.9.9.9"],
+            "nameserver[1]",
+            False,
+            ["9.9.9.9", "1.1.1.1", "8.8.8.8"],
+        ),
+        (
+            ["1.1.1.1", "9.9.9.9", "8.8.8.8"],
+            'nameserver[. = "8.8.8.8"]',
+            False,
+            ["1.1.1.1", "9.9.9.9", "8.8.8.8"],
+        ),
+        (["9.9.9.9", "1.1.1.1", "8.8.8.8"], "nameserver", True, ["1.1.1.1", "8.8.8.8", "9.9.9.9"]),
+        (
+            ["1.1.1.1", "9.9.9.9", "8.8.8.8"],
+            "nameserver[1]",
+            True,
+            ["1.1.1.1", "9.9.9.9", "8.8.8.8"],
+        ),
+        (["1.1.1.1", "8.8.8.8"], "domain", True, ["1.1.1.1", "8.8.8.8", "9.9.9.9"]),
+    ],
+)
+def test_resolver_placement_previews_applies_and_repeats(
+    tmp_path, servers, anchor, place_after, expected
+):
+    target = _resolvers(tmp_path, servers)
+    placement = {"anchor": anchor, "place_after": place_after}
+
+    preview = _place_quad9(tmp_path, check_mode=True, **placement)
+    assert preview["changed"] is (servers != expected)
+    assert _nameservers(target) == servers
+
+    applied = _place_quad9(tmp_path, **placement)
+    assert applied["changed"] is preview["changed"]
+    assert applied["after"] == {"$value": "9.9.9.9"}
+    assert _nameservers(target) == expected
+    assert target.read_text().startswith("# DNS resolvers\n")
+
+    assert _place_quad9(tmp_path, **placement)["changed"] is False
+
+
+def test_placement_moves_a_match_block_with_its_formatting(tmp_path):
+    target = tmp_path / "etc" / "ssh" / "sshd_config"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        SSHD_CONFIG + "Match User backup\n  # Keep this setting\n  X11Forwarding yes\n"
+    )
+    resource, _target = _resource(tmp_path, path='Match[Condition/User="backup"]')
+    try:
+        result = resource.run("merged", {"Settings": {"X11Forwarding": "no"}}, anchor="Match")
+    finally:
+        resource.close()
+
+    assert result["changed"] is True
+    contents = target.read_text()
+    assert contents.index("Match User backup") < contents.index("Match User deploy")
+    assert "  # Keep this setting\n  X11Forwarding no" in contents
+    assert contents.endswith(
+        "Match User deploy\n  X11Forwarding yes\n  PasswordAuthentication yes\n"
+    )
+
+
+def test_placement_creates_a_global_setting_before_match_blocks(tmp_path):
+    resource, target = _resource(tmp_path, path="AllowTcpForwarding")
+    try:
+        result = resource.run("merged", {"$value": "no"}, anchor="Match")
+    finally:
+        resource.close()
+
+    assert result["changed"] is True
+    contents = target.read_text()
+    assert contents.index("AllowTcpForwarding no") < contents.index("Match User deploy")
+
+
+BACKUP_MATCH = "Match User backup\n  X11Forwarding no\n"
+DEPLOY_MATCH = "Match User deploy\n  X11Forwarding yes\n  PasswordAuthentication yes\n"
+
+
+@pytest.mark.parametrize("already_first", [False, True])
+def test_replaced_places_a_block_whose_contents_already_match(tmp_path, already_first):
+    target = tmp_path / "etc" / "ssh" / "sshd_config"
+    target.parent.mkdir(parents=True)
+    blocks = BACKUP_MATCH + DEPLOY_MATCH if already_first else DEPLOY_MATCH + BACKUP_MATCH
+    target.write_text("Port 22\n" + blocks)
+    resource, _target = _resource(tmp_path, path='Match[Condition/User="backup"]')
+    try:
+        result = resource.run(
+            "replaced",
+            {"Condition": {"User": "backup"}, "Settings": {"X11Forwarding": "no"}},
+            anchor="Match",
+        )
+    finally:
+        resource.close()
+
+    assert result["changed"] is not already_first
+    assert result["before"] == result["after"]
+    assert target.read_text() == "Port 22\n" + BACKUP_MATCH + DEPLOY_MATCH
+
+
+def test_placement_rejects_a_path_that_loses_the_moved_node(tmp_path):
+    target = _resolvers(tmp_path, ["1.1.1.1", "8.8.8.8", "9.9.9.9"])
+    original = target.read_text()
+    with pytest.raises(AugeasResourceError, match="no longer selects the moved node"):
+        _place_quad9(tmp_path, path="nameserver[3]", anchor="nameserver")
+    assert target.read_text() == original
+
+
+@pytest.mark.parametrize(
+    ("path", "state", "config", "anchor", "message"),
+    [
+        ("Port", "merged", {"$value": "2222"}, "../Port", "relative to the parent"),
+        ("Port", "merged", {"$value": "2222"}, "/files", "relative to the parent"),
+        ("Port", "merged", {"$value": "2222"}, "", "siblings of path"),
+        ("Port", "merged", {"$value": "2222"}, "Match/Settings", "siblings of path"),
+        ("Port", "deleted", None, "Match", "state=merged or replaced"),
+        ("", "merged", {"Port": "2222"}, "Match", "require path"),
+    ],
+)
+def test_invalid_placement_preserves_file(tmp_path, path, state, config, anchor, message):
+    resource, target = _resource(tmp_path, path=path)
+    original = target.read_bytes()
+    try:
+        with pytest.raises(AugeasResourceError, match=message):
+            resource.run(state, config, anchor=anchor)
+    finally:
+        resource.close()
+    assert target.read_bytes() == original
+
+
+@pytest.mark.parametrize("check", [True, False])
+def test_placement_rejects_renumbered_host_identity(tmp_path, check):
+    target = tmp_path / "hosts"
+    initial = "127.0.0.1 localhost\n192.0.2.1 old\n192.0.2.2 keep\n"
+    target.write_text(initial)
+    resource = AugeasResource("/hosts", "Hosts", path="3", root=str(tmp_path), check_mode=check)
+    try:
+        with pytest.raises(AugeasResourceError, match="different node after rendering"):
+            resource.run("merged", {"alias": "owned"}, anchor="1")
+    finally:
+        resource.close()
+    assert target.read_text() == initial
+    assert not (tmp_path / "hosts.augnew").exists()
+
+
+def test_placement_rejects_moving_anchor(tmp_path):
+    target = _resolvers(tmp_path, ["1.1.1.1", "8.8.8.8", "9.9.9.9"])
+    original = target.read_bytes()
+    with pytest.raises(AugeasResourceError, match="second run"):
+        _place_quad9(tmp_path, anchor=QUAD9 + "/preceding-sibling::nameserver[1]")
+    assert target.read_bytes() == original
+
+
+def test_placement_requires_managed_node(tmp_path):
+    resource, target = _resource(tmp_path, path="MaxSessions")
+    original = target.read_bytes()
+    try:
+        with pytest.raises(AugeasResourceError, match="select a node"):
+            resource.run("merged", {}, anchor="Port")
+    finally:
+        resource.close()
+    assert target.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("path", "anchor", "after", "initial", "desired", "config"),
+    [
+        (
+            '#comment[. =~ regexp("policy: .*")]',
+            "Banner",
+            False,
+            "# policy: old\nPort 22\n# handwritten\nBanner /notice\n",
+            "Port 22\n# handwritten\n# policy: updated\nBanner /notice\n",
+            {"$value": "policy: updated"},
+        ),
+        (
+            "Port",
+            '#comment[. = "handwritten"]',
+            True,
+            "# handwritten\nBanner /notice\nPort 22\n",
+            "# handwritten\nPort 22\nBanner /notice\n",
+            None,
+        ),
+        (
+            'Match[Condition/User="backup"]',
+            'Match[Condition/User="deploy"]',
+            False,
+            BACKUP_MATCH + "Match User other\n  PermitTTY no\n" + DEPLOY_MATCH,
+            "Match User other\n  PermitTTY no\n" + BACKUP_MATCH + DEPLOY_MATCH,
+            None,
+        ),
+    ],
+)
+def test_immediate_placement(tmp_path, path, anchor, after, initial, desired, config):
+    target = tmp_path / "sshd_config"
+    target.write_text(initial)
+    for check_mode, changed in [(True, True), (False, True), (False, False)]:
+        resource = AugeasResource(
+            "/sshd_config", "Sshd", path=path, root=str(tmp_path), check_mode=check_mode
+        )
+        try:
+            result = resource.run(
+                "merged", config, anchor=anchor, place_after=after, immediate=True
+            )
+        finally:
+            resource.close()
+        assert result["changed"] is changed
+        assert target.read_text() == (initial if check_mode else desired)
+
+
+@pytest.mark.parametrize("anchor", ["Port", "DoesNotExist", "*"])
+def test_immediate_placement_requires_distinct_single_anchor(tmp_path, anchor):
+    resource, target = _resource(tmp_path, path="Port")
+    original = target.read_bytes()
+    try:
+        with pytest.raises(AugeasResourceError, match="one distinct sibling"):
+            resource.run("merged", {"$value": "2222"}, anchor=anchor, immediate=True)
+    finally:
+        resource.close()
+    assert target.read_bytes() == original
+
+
+def test_placement_saves_changed_subtree_when_order_already_matches(tmp_path):
+    target = tmp_path / "hosts"
+    original = "192.0.2.1 web old-alias\n192.0.2.2 db\n"
+    target.write_text(original)
+    for check_mode, changed in [(True, True), (False, True), (False, False)]:
+        resource = AugeasResource(
+            "/hosts", "Hosts", path='*[canonical="web"]', root=str(tmp_path), check_mode=check_mode
+        )
+        try:
+            result = resource.run("merged", {"alias": "new-alias"}, anchor='*[canonical="db"]')
+        finally:
+            resource.close()
+        assert result["changed"] is changed
+        assert target.read_text() == (
+            original if check_mode else original.replace("old-alias", "new-alias")
+        )
+
+
+@pytest.mark.parametrize("permutation", [(0, 1, 2, 3), (3, 2, 1, 0), (2, 0, 3, 1)])
+def test_batch_reverses_selected_siblings_in_one_commit_and_converges(tmp_path, permutation):
+    target = tmp_path / "resolv.conf"
+    addresses = [f"192.0.2.{n}" for n in range(1, 6)]
+
+    def contents(servers):
+        lines = [f"nameserver {address}\n" for address in servers]
+        lines[2:2] = ["# Local DNS policy\n", "search example.test\n"]
+        return "".join(lines)
+
+    initial = contents(addresses)
+    expected = contents(addresses[::-1])
+    target.write_text(initial)
+    order = [f'nameserver[. = "{address}"]' for address in reversed(addresses)]
+    declarations = [{"path": order[i], "before": order[i + 1]} for i in permutation]
+    commits = []
+
+    def commit(candidate, destination):
+        commits.append(Path(candidate).read_text())
+        Path(candidate).replace(destination)
+
+    def apply(check_mode=False):
+        resource = AugeasResource(
+            "/resolv.conf", "Resolv", root=str(tmp_path), check_mode=check_mode, commit=commit
+        )
+        try:
+            return resource.run_resources(declarations)
+        finally:
+            resource.close()
+
+    assert apply(check_mode=True)["changed"]
+    assert target.read_text() == initial
+    assert commits == []
+
+    assert apply()["changed"]
+    assert target.read_text() == expected
+    assert commits == [expected]
+
+    assert not apply()["changed"]
+    assert target.read_text() == expected
+    assert commits == [expected]
+
+
+def _sshd_batch(tmp_path, declarations, check_mode=False):
+    resource = AugeasResource("/sshd_config", "Sshd", root=str(tmp_path), check_mode=check_mode)
+    try:
+        return resource.run_resources(declarations)
+    finally:
+        resource.close()
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_batch_places_created_and_updated_nodes_and_accepts_compatible_duplicates(
+    tmp_path, reverse
+):
+    target = tmp_path / "sshd_config"
+    original = "Port 22\n# handwritten\nPermitTTY yes\n"
+    target.write_text(original)
+    note = '#comment[. = "access policy"]'
+    declarations = [
+        {"path": note, "immediately_before": "Banner", "config": {"$value": "access policy"}},
+        {"path": "Banner", "after": "PermitTTY", "config": {"$value": "/etc/issue.net"}},
+        {"path": "PermitTTY", "config": {"$value": "no"}},
+        {"path": "Port", "before": note},
+        {"path": note, "before": "Banner"},
+    ]
+    if reverse:
+        declarations.reverse()
+    expected = "Port 22\n# handwritten\nPermitTTY no\n# access policy\nBanner /etc/issue.net\n"
+    for check_mode, changed in [(True, True), (False, True), (False, False)]:
+        assert _sshd_batch(tmp_path, declarations, check_mode)["changed"] is changed
+        assert target.read_text() == (original if check_mode else expected)
+
+
+@pytest.mark.parametrize(
+    "conflict",
+    [
+        [{"path": "Port", "before": "Banner"}, {"path": "Banner", "before": "Port"}],
+        [
+            {"path": "Port", "immediately_before": "Banner"},
+            {"path": "PermitTTY", "immediately_before": "Banner"},
+        ],
+        [
+            {"path": 'Match[Condition/User="deploy"]', "config": {"Settings": {"PermitTTY": "no"}}},
+            {"path": "Match/Settings/PermitTTY", "config": {"$value": "yes"}},
+        ],
+    ],
+    ids=["cycle", "competing-immediate-predecessors", "overlapping-content"],
+)
+@pytest.mark.parametrize("reverse", [False, True])
+def test_batch_rejects_incompatible_declarations_without_committing(tmp_path, conflict, reverse):
+    target = tmp_path / "sshd_config"
+    original = "Port 22\nPermitTTY yes\nBanner /notice\nMatch User deploy\n  PermitTTY no\n"
+    target.write_text(original)
+    declarations = [{"path": "Port", "config": {"$value": "2222"}}, *conflict]
+    if reverse:
+        declarations.reverse()
+    with pytest.raises(AugeasResourceError):
+        _sshd_batch(tmp_path, declarations)
+    assert target.read_text() == original
+    assert not (tmp_path / "sshd_config.augnew").exists()
+
+
+def test_batch_moves_ancestor_and_orders_descendants(tmp_path):
+    target = tmp_path / "sshd_config"
+    backup = "Match User backup\n  X11Forwarding yes\n  PermitTTY no\n"
+    deploy = "Match User deploy\n  PermitTTY yes\n"
+    target.write_text("Port 22\n" + deploy + backup)
+    backup_path = 'Match[Condition/User="backup"]'
+    declarations = [
+        {"path": backup_path, "before": 'Match[Condition/User="deploy"]'},
+        {"path": backup_path + "/Settings/PermitTTY", "immediately_before": "X11Forwarding"},
+    ]
+    for changed in (True, False):
+        assert _sshd_batch(tmp_path, declarations)["changed"] is changed
+        assert (
+            target.read_text()
+            == "Port 22\nMatch User backup\n  PermitTTY no\n  X11Forwarding yes\n" + deploy
+        )
+
+
+def test_batch_content_edit_cannot_retarget_an_existing_resource(tmp_path):
+    target = tmp_path / "sshd_config"
+    original = "Port 21\nPort 22\nPort 23\n"
+    target.write_text(original)
+    with pytest.raises(AugeasResourceError, match="identity"):
+        _sshd_batch(
+            tmp_path,
+            [
+                {"path": "Port[1]", "state": "deleted"},
+                {"path": "Port[2]", "config": {"$value": "2222"}},
+            ],
+        )
+    assert target.read_text() == original
