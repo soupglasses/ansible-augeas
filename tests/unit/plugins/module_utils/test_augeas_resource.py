@@ -1027,64 +1027,6 @@ def test_placement_requires_managed_node(tmp_path):
     assert target.read_bytes() == original
 
 
-@pytest.mark.parametrize(
-    ("path", "anchor", "after", "initial", "desired", "config"),
-    [
-        (
-            '#comment[. =~ regexp("policy: .*")]',
-            "Banner",
-            False,
-            "# policy: old\nPort 22\n# handwritten\nBanner /notice\n",
-            "Port 22\n# handwritten\n# policy: updated\nBanner /notice\n",
-            {"$value": "policy: updated"},
-        ),
-        (
-            "Port",
-            '#comment[. = "handwritten"]',
-            True,
-            "# handwritten\nBanner /notice\nPort 22\n",
-            "# handwritten\nPort 22\nBanner /notice\n",
-            None,
-        ),
-        (
-            'Match[Condition/User="backup"]',
-            'Match[Condition/User="deploy"]',
-            False,
-            BACKUP_MATCH + "Match User other\n  PermitTTY no\n" + DEPLOY_MATCH,
-            "Match User other\n  PermitTTY no\n" + BACKUP_MATCH + DEPLOY_MATCH,
-            None,
-        ),
-    ],
-)
-def test_immediate_placement(tmp_path, path, anchor, after, initial, desired, config):
-    target = tmp_path / "sshd_config"
-    target.write_text(initial)
-    for check_mode, changed in [(True, True), (False, True), (False, False)]:
-        resource = AugeasResource(
-            "/sshd_config", "Sshd", path=path, root=str(tmp_path), check_mode=check_mode
-        )
-        try:
-            result = resource.run(
-                "merged", config, anchor=anchor, place_after=after, immediate=True
-            )
-        finally:
-            resource.close()
-        assert result["changed"] is changed
-        assert target.read_text() == (initial if check_mode else desired)
-
-
-@pytest.mark.parametrize("anchor", ["Port", "DoesNotExist", "*"])
-def test_immediate_placement_requires_distinct_single_anchor(tmp_path, anchor):
-    resource, target = _resource(tmp_path, path="Port")
-    original = target.read_bytes()
-    try:
-        with pytest.raises(AugeasResourceError, match="one distinct sibling"):
-            resource.run("merged", {"$value": "2222"}, anchor=anchor, immediate=True)
-    finally:
-        resource.close()
-    assert target.read_bytes() == original
-
-
 def test_placement_saves_changed_subtree_when_order_already_matches(tmp_path):
     target = tmp_path / "hosts"
     original = "192.0.2.1 web old-alias\n192.0.2.2 db\n"
@@ -1163,7 +1105,7 @@ def test_batch_places_created_and_updated_nodes_and_accepts_compatible_duplicate
     target.write_text(original)
     note = '#comment[. = "access policy"]'
     declarations = [
-        {"path": note, "immediately_before": "Banner", "config": {"$value": "access policy"}},
+        {"path": note, "before": "Banner", "config": {"$value": "access policy"}},
         {"path": "Banner", "after": "PermitTTY", "config": {"$value": "/etc/issue.net"}},
         {"path": "PermitTTY", "config": {"$value": "no"}},
         {"path": "Port", "before": note},
@@ -1171,7 +1113,7 @@ def test_batch_places_created_and_updated_nodes_and_accepts_compatible_duplicate
     ]
     if reverse:
         declarations.reverse()
-    expected = "Port 22\n# handwritten\nPermitTTY no\n# access policy\nBanner /etc/issue.net\n"
+    expected = "Port 22\n# handwritten\n# access policy\nPermitTTY no\nBanner /etc/issue.net\n"
     for check_mode, changed in [(True, True), (False, True), (False, False)]:
         assert _sshd_batch(tmp_path, declarations, check_mode)["changed"] is changed
         assert target.read_text() == (original if check_mode else expected)
@@ -1182,15 +1124,11 @@ def test_batch_places_created_and_updated_nodes_and_accepts_compatible_duplicate
     [
         [{"path": "Port", "before": "Banner"}, {"path": "Banner", "before": "Port"}],
         [
-            {"path": "Port", "immediately_before": "Banner"},
-            {"path": "PermitTTY", "immediately_before": "Banner"},
-        ],
-        [
             {"path": 'Match[Condition/User="deploy"]', "config": {"Settings": {"PermitTTY": "no"}}},
             {"path": "Match/Settings/PermitTTY", "config": {"$value": "yes"}},
         ],
     ],
-    ids=["cycle", "competing-immediate-predecessors", "overlapping-content"],
+    ids=["cycle", "overlapping-content"],
 )
 @pytest.mark.parametrize("reverse", [False, True])
 def test_batch_rejects_incompatible_declarations_without_committing(tmp_path, conflict, reverse):
@@ -1214,7 +1152,7 @@ def test_batch_moves_ancestor_and_orders_descendants(tmp_path):
     backup_path = 'Match[Condition/User="backup"]'
     declarations = [
         {"path": backup_path, "before": 'Match[Condition/User="deploy"]'},
-        {"path": backup_path + "/Settings/PermitTTY", "immediately_before": "X11Forwarding"},
+        {"path": backup_path + "/Settings/PermitTTY", "before": "X11Forwarding"},
     ]
     for changed in (True, False):
         assert _sshd_batch(tmp_path, declarations)["changed"] is changed
@@ -1237,3 +1175,4 @@ def test_batch_content_edit_cannot_retarget_an_existing_resource(tmp_path):
             ],
         )
     assert target.read_text() == original
+

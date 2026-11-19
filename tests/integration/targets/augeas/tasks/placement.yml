@@ -46,12 +46,12 @@
       Banner /etc/issue.net
     mode: "0600"
 
-- name: Place the role's comment immediately above the banner
+- name: Place the role's comment above the banner
   soupglasses.augeas.augeas:
     file: "{{ augeas_test_tmp.path }}/banner.conf"
     lens: Sshd
     path: '#comment[. =~ regexp("access-policy: .*")]'
-    immediately_before: Banner
+    before: Banner
     config:
       $value: "access-policy: Display the legal notice before login."
   loop: [apply, repeat]

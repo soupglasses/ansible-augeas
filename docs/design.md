@@ -61,7 +61,6 @@ same label. It does not reorder existing nodes.
 
 Placement uses the selected node as the source and a parent-relative path to
 find sibling anchors. `before` and `after` enforce precedence.
-`immediately_before` and `immediately_after` require a unique neighbor.
 When a move is needed, Augeas variables keep track of the source and anchor
 while `insert` creates an empty sibling and `mv` moves the source there.
 The module checks the rendered file in a fresh Augeas handle before committing
