@@ -1,16 +1,12 @@
 amends "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Config.pkl"
 
 // ansible-test only runs inside an ansible_collections/<namespace>/<name>
-// directory with no .git above it, so each step checks out the staged files
-// into one outside the repository. A cancelled run skips the cleanup, so each
-// step reuses one directory.
-local function inCollection(step: String, command: String): String = """
-    dir="${XDG_CACHE_HOME:-$HOME/.cache}/hk-ansible-test/soupglasses.augeas/\(step)"
-    rm -rf "$dir"
-    mkdir -p "$dir"
-    trap 'rm -rf "$dir"' EXIT
-    git checkout-index --all --prefix="$dir/ansible_collections/soupglasses/augeas/"
-    cd "$dir/ansible_collections/soupglasses/augeas"
+// directory, so each step checks out the staged files into one.
+local function inCollection(command: String): String = """
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    git checkout-index --all --prefix="$tmp/ansible_collections/soupglasses/augeas/"
+    cd "$tmp/ansible_collections/soupglasses/augeas"
     \(command)
     """
 
@@ -19,24 +15,24 @@ local python = #"--python "$(python3 -c 'import sys; print(*sys.version_info[:2]
 
 steps {
     ["sanity"] {
-        check = inCollection("sanity", "ansible-test sanity --venv --requirements \(python)")
+        check = inCollection("ansible-test sanity --venv --requirements \(python)")
     }
     ["changelog"] {
-        check = inCollection("changelog", """
+        check = inCollection("""
             antsibull-changelog lint
             antsibull-changelog lint-changelog-yaml changelogs/changelog.yaml
-            cp CHANGELOG.rst "$dir/CHANGELOG.rst"
+            cp CHANGELOG.rst "$tmp/CHANGELOG.rst"
             antsibull-changelog generate
-            diff -u "$dir/CHANGELOG.rst" CHANGELOG.rst
+            diff -u "$tmp/CHANGELOG.rst" CHANGELOG.rst
             """)
     }
     ["units"] {
-        check = inCollection("units", "ansible-test units --target-python default")
+        check = inCollection("ansible-test units --target-python default")
     }
     ["integration"] {
-        check = inCollection("integration", "ansible-test integration --local augeas")
+        check = inCollection("ansible-test integration --local augeas")
     }
     ["build"] {
-        check = inCollection("build", "ansible-galaxy collection build --output-path \"$dir/dist\"")
+        check = inCollection("ansible-galaxy collection build --output-path \"$tmp/dist\"")
     }
 }
