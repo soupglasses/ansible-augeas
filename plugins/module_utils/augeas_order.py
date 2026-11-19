@@ -35,7 +35,7 @@ def _plan(size, relations):
         return original
 
     if len(relations) == 1:
-        source, anchors, after, _ = relations[0]
+        source, anchors, after, _immediate = relations[0]
         target = (max if after else min)(a for a in anchors if a != source)
         original.remove(source)
         original.insert(original.index(target) + int(after), source)
@@ -91,7 +91,7 @@ def _sort_blocks(blocks, owner, offset, rank, participants, constraints):
     order = []
     while any(ready):
         desired = len(order) in participants
-        _, head = heappop(ready[desired] or ready[not desired])
+        _rank, head = heappop(ready[desired] or ready[not desired])
         order.extend(blocks[head])
         for successor in outgoing[head]:
             indegree[successor] -= 1
@@ -140,12 +140,16 @@ def apply_constraints(aug, parent, siblings, relations):
 
     # Keep stationary siblings in the tree. Within each gap, keep as many
     # additional already-ordered nodes as possible to avoid redundant moves.
-    sources = {source for source, anchors, _, _ in resolved if any(a != source for a in anchors)}
+    sources = {
+        source
+        for source, anchors, _after, _immediate in resolved
+        if any(a != source for a in anchors)
+    }
     stationary = [node for node in order if node not in sources]
     if stationary == sorted(stationary):
         fixed = set(stationary)
     else:
-        anchors = {node for _, nodes, _, _ in resolved for node in nodes}
+        anchors = {node for _source, nodes, _after, _immediate in resolved for node in nodes}
         fixed = set(stationary) - anchors
     keep = fixed.copy()
     lower = start = -1
