@@ -11,93 +11,61 @@ def _plan(size, relations):
     sources = set()
     participants = set()
     edges = set()
-    previous = {}
-    following = {}
-    for source, anchors, after, immediate in relations:
-        if immediate and (len(anchors) != 1 or anchors[0] == source):
-            raise ValueError("immediate placement requires one distinct sibling as the anchor")
+    for source, anchors, after in relations:
         for anchor in anchors:
             if anchor == source:
                 continue
             sources.add(source)
             participants.update((source, anchor))
-            left, right = (anchor, source) if after else (source, anchor)
-            edges.add((left, right))
-            if immediate:
-                if (
-                    following.setdefault(left, right) != right
-                    or previous.setdefault(right, left) != left
-                ):
-                    raise ValueError("conflicting immediate sibling constraints")
+            edges.add((anchor, source) if after else (source, anchor))
 
     original = list(range(size))
-    if all(a < b for a, b in edges) and all(b == a + 1 for a, b in following.items()):
+    if all(a < b for a, b in edges):
         return original
 
     if len(relations) == 1:
-        source, anchors, after, _immediate = relations[0]
+        source, anchors, after = relations[0]
         target = (max if after else min)(a for a in anchors if a != source)
         original.remove(source)
         original.insert(original.index(target) + int(after), source)
         return original
 
-    # Each chain of immediate siblings must move through the sort as a unit.
-    blocks = {}
-    owner = {}
-    for head in original:
-        if head in previous:
-            continue
-        chain = [head]
-        while chain[-1] in following:
-            chain.append(following[chain[-1]])
-        blocks[head] = chain
-        owner.update((node, head) for node in chain)
-    if len(owner) != size:
-        raise ValueError("cyclic immediate sibling constraints")
-
-    offset = {node: i for chain in blocks.values() for i, node in enumerate(chain)}
     # Siblings outside all declarations retain relative order. Also retain the
     # order of anchors that are never sources whenever the constraints allow it.
     outsiders = [node for node in original if node not in participants]
     anchors = sorted(participants - sources)
     required = edges.union(zip(outsiders, outsiders[1:]))
     preferred = required.union(zip(anchors, anchors[1:]))
-    rank = {head: min(chain) for head, chain in blocks.items()}
     for constraints in (preferred, required):
-        order = _sort_blocks(blocks, owner, offset, rank, participants, constraints)
+        order = _sort(size, participants, constraints)
         if order is not None:
             return order
     raise ValueError("conflicting sibling order constraints")
 
 
-def _sort_blocks(blocks, owner, offset, rank, participants, constraints):
-    outgoing = {head: set() for head in blocks}
-    indegree = dict.fromkeys(blocks, 0)
+def _sort(size, participants, constraints):
+    outgoing = [[] for _ in range(size)]
+    indegree = [0] * size
     for a, b in constraints:
-        left, right = owner[a], owner[b]
-        if left == right:
-            if offset[a] > offset[b]:
-                return None
-        elif right not in outgoing[left]:
-            outgoing[left].add(right)
-            indegree[right] += 1
+        outgoing[a].append(b)
+        indegree[b] += 1
 
     # Reuse participant slots where possible, so ordering repeated records
     # does not displace unrelated directives interleaved among them.
     ready = ([], [])
-    for head in blocks:
-        if not indegree[head]:
-            heappush(ready[head in participants], (rank[head], head))
+    for node in range(size):
+        if not indegree[node]:
+            heappush(ready[node in participants], node)
     order = []
     while any(ready):
         desired = len(order) in participants
-        _rank, head = heappop(ready[desired] or ready[not desired])
-        order.extend(blocks[head])
-        for successor in outgoing[head]:
+        node = heappop(ready[desired] or ready[not desired])
+        order.append(node)
+        for successor in outgoing[node]:
             indegree[successor] -= 1
             if not indegree[successor]:
-                heappush(ready[successor in participants], (rank[successor], successor))
-    return order if len(order) == len(owner) else None
+                heappush(ready[successor in participants], successor)
+    return order if len(order) == size else None
 
 
 def _increasing(nodes):
@@ -127,8 +95,8 @@ def apply_constraints(aug, parent, siblings, relations):
     try:
         resolved = list(
             dict.fromkeys(
-                (index[source], tuple(index[node] for node in anchors), after, immediate)
-                for source, anchors, after, immediate in relations
+                (index[source], tuple(index[node] for node in anchors), after)
+                for source, anchors, after in relations
             )
         )
     except KeyError as error:
@@ -140,16 +108,12 @@ def apply_constraints(aug, parent, siblings, relations):
 
     # Keep stationary siblings in the tree. Within each gap, keep as many
     # additional already-ordered nodes as possible to avoid redundant moves.
-    sources = {
-        source
-        for source, anchors, _after, _immediate in resolved
-        if any(a != source for a in anchors)
-    }
+    sources = {source for source, anchors, _after in resolved if any(a != source for a in anchors)}
     stationary = [node for node in order if node not in sources]
     if stationary == sorted(stationary):
         fixed = set(stationary)
     else:
-        anchors = {node for _source, nodes, _after, _immediate in resolved for node in nodes}
+        anchors = {node for _source, nodes, _after in resolved for node in nodes}
         fixed = set(stationary) - anchors
     keep = fixed.copy()
     lower = start = -1

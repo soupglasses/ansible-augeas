@@ -72,12 +72,6 @@ options:
       after:
         description: Keep this resource after the matching siblings. See O(after).
         type: str
-      immediately_before:
-        description: Place this resource directly before one sibling. See O(immediately_before).
-        type: str
-      immediately_after:
-        description: Place this resource directly after one sibling. See O(immediately_after).
-        type: str
   path:
     description:
       - Augeas path expression relative to the tree root for O(file).
@@ -98,20 +92,6 @@ options:
     description:
       - Keep the node selected by O(path) after every sibling this Augeas expression selects.
       - Otherwise behaves like O(before).
-    type: str
-    version_added: "1.1.0"
-  immediately_before:
-    description:
-      - Place the entire node selected by O(path) directly before one distinct sibling.
-      - The anchor is an Augeas path expression relative to its parent. A missing or
-        ambiguous anchor fails. All siblings exposed by the lens count, including comments.
-      - Requires O(state=merged) or O(state=replaced).
-    type: str
-    version_added: "1.1.0"
-  immediately_after:
-    description:
-      - Place the entire node selected by O(path) directly after one distinct sibling.
-      - Otherwise behaves like O(immediately_before).
     type: str
     version_added: "1.1.0"
   validate:
@@ -368,13 +348,12 @@ def main():
         if module.params["resources"] is not None:
             result = resource.run_resources(module.params["resources"])
         else:
-            anchor, after, immediate = placement_from_params(module.params)
+            anchor, after = placement_from_params(module.params)
             result = resource.run(
                 module.params["state"],
                 module.params["config"],
                 anchor=anchor,
                 place_after=after,
-                immediate=immediate,
             )
     except AugeasResourceError as error:
         module.fail_json(msg=str(error))

@@ -92,60 +92,60 @@ If Quad9 is missing, the task adds it. If it is third, the task moves it to
 first and keeps the other servers in their original order. Once Quad9 is
 first, the task reports no change.
 
-### Place a selected node next to another one
+### Keep a selected node ahead of another one
 
-Use `path` to identify the node this role manages and `immediately_before` or
-`immediately_after` to select its neighbor. For example, keep an SSH rule
-directly ahead of a fallback block, including all its existing settings:
+Use `path` to identify the node this role manages and `before` or `after` to
+select the sibling it must stay ahead of or behind. For example, keep an SSH
+rule ahead of a fallback block, including all its existing settings:
 
 ```yaml
-- name: Put the deploy block directly ahead of the fallback block
+- name: Keep the deploy block ahead of the fallback block
   soupglasses.augeas.augeas:
     file: /etc/ssh/sshd_config
     lens: Sshd
     path: 'Match[Condition/User="deploy"]'
-    immediately_before: 'Match[Condition/Group="contractors"]'
+    before: 'Match[Condition/Group="contractors"]'
 ```
 
-This task only manages the order of two existing blocks. Use `before` instead
-when other blocks may appear between them. To create a node as well, supply
-its contents in `config`. The same interface works for a comment:
+This task only manages the order of two existing blocks. Other blocks may stay
+between them. To create a node as well, supply its contents in `config`. The
+same interface works for a comment:
 
 ```yaml
-- name: Put the access policy note directly above the SSH banner
+- name: Keep the access policy note above the SSH banner
   soupglasses.augeas.augeas:
     file: /etc/ssh/sshd_config
     lens: Sshd
     path: '#comment[. =~ regexp("access-policy: .*")]'
     config:
       $value: "access-policy: Display the legal notice before login."
-    immediately_before: Banner
+    before: Banner
 ```
 
 The selector identifies the note across wording changes. Any handwritten
-comment formerly next to `Banner` keeps its contents.
+comment above `Banner` keeps its contents.
 
 ### Order several resources in one file
 
 Suppose the SSH client file starts with five host blocks in reverse order:
-`production`, `staging`, `qa`, `test`, `dev`. Describe their desired neighbors
+`production`, `staging`, `qa`, `test`, `dev`. Describe their desired order
 in one task. Each selector identifies a block by its host pattern, so its
 settings move with it.
 
 ```yaml
-- name: Keep the five SSH host blocks together
+- name: Order the five SSH host blocks
   soupglasses.augeas.augeas:
     file: /etc/ssh/ssh_config
     lens: Ssh
     resources:
       - path: 'Host[. = "staging"]'
-        immediately_before: 'Host[. = "production"]'
+        before: 'Host[. = "production"]'
       - path: 'Host[. = "qa"]'
-        immediately_before: 'Host[. = "staging"]'
+        before: 'Host[. = "staging"]'
       - path: 'Host[. = "test"]'
-        immediately_before: 'Host[. = "qa"]'
+        before: 'Host[. = "qa"]'
       - path: 'Host[. = "dev"]'
-        immediately_before: 'Host[. = "test"]'
+        before: 'Host[. = "test"]'
         config:
           ServerAliveInterval: "30"
 ```

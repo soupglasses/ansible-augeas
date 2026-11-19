@@ -5,8 +5,5 @@ minor_changes:
     ``path`` on one side of its siblings in the ``merged`` and ``replaced``
     states.
   - >-
-    Add ``immediately_before`` and ``immediately_after`` to keep a selected
-    Augeas node directly beside one sibling.
-  - >-
     Add ``resources`` to reconcile several declarations for one file together,
     validate their combined result, and commit once.

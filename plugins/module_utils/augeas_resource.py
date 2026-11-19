@@ -54,7 +54,7 @@ else:
 
 
 HAS_AUGEAS = Augeas is not None
-PLACEMENT_KEYS = ("before", "after", "immediately_before", "immediately_after")
+PLACEMENT_KEYS = ("before", "after")
 
 _CONTROL_KEYS = frozenset(("$children", "$value"))
 _FORMATTING_LABELS = frozenset(("#comment", "#empty"))
@@ -76,9 +76,9 @@ def placement_from_params(params):
     if len(placements) > 1:
         raise ConfigError(f"invalid placement options for {params.get('path', '')!r}")
     if not placements:
-        return None, False, False
+        return None, False
     key = placements[0]
-    return params[key], key.endswith("after"), key.startswith("immediately_")
+    return params[key], key == "after"
 
 
 @dataclass(frozen=True)
@@ -96,7 +96,6 @@ class _Declaration:
     entries: list
     anchor: str | None
     after: bool
-    immediate: bool
 
     @classmethod
     def from_params(cls, params):
@@ -105,7 +104,7 @@ class _Declaration:
         config = params.get("config")
         if state not in ("merged", "replaced", "deleted"):
             raise ConfigError(f"unsupported resource state {state!r}")
-        anchor, after, immediate = placement_from_params(params)
+        anchor, after = placement_from_params(params)
         if anchor is not None and state == "deleted":
             raise ConfigError(f"invalid placement options for {path!r}")
         if config is None and (state == "replaced" or (state == "merged" and anchor is None)):
@@ -117,7 +116,6 @@ class _Declaration:
             flatten_config(config) if config is not None else [],
             anchor,
             after,
-            immediate,
         )
 
 
@@ -748,7 +746,7 @@ class AugeasResource:
             if os.path.lexists(candidate):
                 os.unlink(candidate)
 
-    def _relation(self, base, anchor, after, immediate):
+    def _relation(self, base, anchor, after):
         if not anchor or anchor.startswith("/") or _has_parent_step(anchor):
             raise AugeasResourceError("anchor must select siblings of path, relative to the parent")
         try:
@@ -758,7 +756,7 @@ class AugeasResource:
             )
         except Exception as error:
             raise AugeasResourceError(f"invalid anchor {anchor!r}: {error}") from error
-        return parent, (base, anchors, after, immediate)
+        return parent, (base, anchors, after)
 
     def _order_siblings(self, parent, siblings, relations):
         try:
@@ -766,8 +764,8 @@ class AugeasResource:
         except Exception as error:
             raise AugeasResourceError(f"cannot place siblings under {parent!r}: {error}") from error
 
-    def _place(self, base, anchor, after, immediate):
-        parent, relation = self._relation(base, anchor, after, immediate)
+    def _place(self, base, anchor, after):
+        parent, relation = self._relation(base, anchor, after)
         siblings = self.aug.match(parent + "/*")
         order = self._order_siblings(parent, siblings, [relation])
         end = order.index(base)
@@ -791,8 +789,8 @@ class AugeasResource:
             node = parent
         return tuple(reversed(offsets))
 
-    def run(self, state, config=None, *, anchor=None, place_after=False, immediate=False):
-        placement = dict(anchor=anchor, place_after=place_after, immediate=immediate)
+    def run(self, state, config=None, *, anchor=None, place_after=False):
+        placement = dict(anchor=anchor, place_after=place_after)
         result = self._reconcile(state, config, **placement)
         if not result["changed"]:
             return result
@@ -827,7 +825,6 @@ class AugeasResource:
                 decl.config,
                 anchor=decl.anchor,
                 place_after=decl.after,
-                immediate=decl.immediate,
                 entries=decl.entries,
             )
             if result["changed"]:
@@ -887,7 +884,7 @@ class AugeasResource:
                     raise AugeasResourceError(
                         f"placement requires {decl.path!r} to select one node below the file root"
                     )
-                parent, relation = view._relation(base, decl.anchor, decl.after, decl.immediate)
+                parent, relation = view._relation(base, decl.anchor, decl.after)
                 groups[parent].append(relation)
 
         self._place_groups(groups, locations)
@@ -930,7 +927,7 @@ class AugeasResource:
 
         self._save(verify_candidate)
 
-    def _reconcile(self, state, config, *, anchor, place_after, immediate, entries=None):
+    def _reconcile(self, state, config, *, anchor, place_after, entries=None):
         if anchor is not None and state not in ("merged", "replaced"):
             raise AugeasResourceError("placement options require state=merged or replaced")
 
@@ -964,7 +961,7 @@ class AugeasResource:
                 raise AugeasResourceError(
                     "placement requires path to select a node after applying config"
                 )
-            start, end = self._place(node, anchor, place_after, immediate)
+            start, end = self._place(node, anchor, place_after)
             changed = changed or start != end
             placement_diff = {"before": start if base_exists else None, "after": end}
             base = self.base_expression

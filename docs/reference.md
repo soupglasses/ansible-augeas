@@ -147,9 +147,9 @@ With `resources`, put all resource options inside the list. The returned
 `before` and `after` describe the entire file tree, including for a list
 of one declaration. Their `$children` lists show sibling order, including
 formatting nodes. List order gives declarations no priority. Checks for cyclic
-ordering, incompatible immediate neighbors, and conflicting content run before
-the file is committed. Check mode evaluates the combined changes. A failed
-declaration or failed validation leaves the file contents intact.
+ordering and conflicting content run before the file is committed. Check mode
+evaluates the combined changes. A failed declaration or failed validation
+leaves the file contents intact.
 
 ## Selectors and repeated resources
 
@@ -208,15 +208,10 @@ gives the same result here.
 
 The module applies the state first and moves the selected subtree only if
 needed. Other siblings keep their relative order. Omit `config` with
-`merged` when the task only manages the position of an existing node.
+`merged` when the task only manages the position of an existing node. An
+anchor that selects no sibling imposes no order.
 
-| Placement | Anchor matches | When placement is satisfied |
-| --- | --- | --- |
-| `before` / `after` | Zero or more siblings, excluding the selected node itself | All matches are on the requested side. |
-| `immediately_before` / `immediately_after` | Exactly one distinct sibling | The selected node is the anchor's nearest sibling on the requested side. |
-
-All options accept Augeas path expressions relative to the selected node's
-parent. Every child exposed by the lens counts, including `#comment` and, where
+Every child exposed by the lens counts, including `#comment` and, where
 available, `#empty`. A lens can preserve physical whitespace outside its tree.
 Moving a node moves all its descendants. A separate sibling, such as a leading
 comment, has its own identity and stays in place unless explicitly selected.
