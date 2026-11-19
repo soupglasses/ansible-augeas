@@ -1,7 +1,4 @@
 ---
-breaking_changes:
+minor_changes:
   - >-
     The ``module_utils`` file ``resource`` is renamed to ``augeas_resource``.
-    Code that imports
-    ``ansible_collections.soupglasses.augeas.plugins.module_utils.resource``
-    must import ``...module_utils.augeas_resource`` instead.
