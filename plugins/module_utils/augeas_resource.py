@@ -18,7 +18,8 @@ and ``encode_config`` turns a read ``TreeNode`` back into the same YAML shape.
    with the one taken before the change.
 4. When it changed, save. With a validator or commit callback, Augeas writes a
    ``.augnew`` candidate that is validated, then committed outside check mode.
-   Otherwise check mode uses a no-op save.
+   Otherwise check mode uses a no-op save, or renders in memory when the
+   candidate must be reparsed.
 
 Every path a step selects must stay inside the managed file, or inside the
 selected subtree once it exists.
@@ -914,18 +915,44 @@ class AugeasResource:
                     locations[i] = (*prefix, new_index, *location[depth + 1 :])
 
     def _save_verified(self, verify):
-        def verify_candidate(candidate):
+        def verify_candidate(candidate=None):
             with tempfile.TemporaryDirectory() as root:
                 target = os.path.join(root, self.file.lstrip("/"))
                 os.makedirs(os.path.dirname(target), exist_ok=True)
-                shutil.copyfile(candidate, target)
+                if candidate is None:
+                    with open(target, "w", encoding="utf-8", newline="") as rendered:
+                        rendered.write(self._render())
+                else:
+                    shutil.copyfile(candidate, target)
                 parsed = AugeasResource(self.file, self.lens, self.path, self.load_path, root=root)
                 try:
                     verify(parsed)
                 finally:
                     parsed.close()
 
-        self._save(verify_candidate)
+        if self.check_mode and not self.candidate_save:
+            verify_candidate()
+        else:
+            self._save(verify_candidate)
+
+    def _render(self):
+        """Render the file in memory, so check mode writes nothing beside it."""
+        try:
+            with open(self.source_path, encoding="utf-8", newline="") as source:
+                original = source.read()
+        except FileNotFoundError:
+            original = ""
+        (lens,) = self.aug.match("/augeas/load/*/lens")
+        try:
+            self.aug.set("/render/original", original)
+            self.aug.text_retrieve(
+                self.aug.get(lens), "/render/original", self.tree_path, "/render/text"
+            )
+            return self.aug.get("/render/text")
+        except Exception as error:
+            raise AugeasResourceError(f"Augeas refused to render {self.file}: {error}") from error
+        finally:
+            self.aug.remove("/render")
 
     def _reconcile(self, state, config, *, anchor, place_after, entries=None):
         if anchor is not None and state not in ("merged", "replaced"):
