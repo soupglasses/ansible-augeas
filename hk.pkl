@@ -10,9 +10,12 @@ local function inCollection(command: String): String = """
     \(command)
     """
 
+// Test only with the Python that mise pins, not every python3.X on PATH.
+local python = #"--python "$(python3 -c 'import sys; print(*sys.version_info[:2], sep=".")')""#
+
 steps {
     ["sanity"] {
-        check = inCollection("ansible-test sanity --venv --requirements")
+        check = inCollection("ansible-test sanity --venv --requirements \(python)")
     }
     ["changelog"] {
         check = inCollection("""
