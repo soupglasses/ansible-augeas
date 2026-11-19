@@ -339,15 +339,14 @@ def _semantic_bodies_match(current, desired, location="config"):
     return True
 
 
-def _configurations_match(current_config, desired_config):
+def _configurations_match(current_config, desired_config, desired_entries):
     if not _uses_path_expressions(desired_config):
         return _semantic_bodies_match(current_config, desired_config)
 
     current = flatten_config(current_config)
-    desired = flatten_config(desired_config)
     if _uses_ordered_children(desired_config):
-        return current == desired
-    return dict(current) == dict(desired)
+        return current == desired_entries
+    return dict(current) == dict(desired_entries)
 
 
 def _encoded_child(node):
@@ -525,37 +524,30 @@ class AugeasResource:
             )
         return matches
 
-    def _read_node(self, path, label=""):
-        matches = self.aug.match(path)
-        if not matches:
-            return None
-        if len(matches) > 1:
-            raise AugeasResourceError(f"Augeas path {path!r} unexpectedly became ambiguous")
-        exact = matches[0]
-        children = tuple(
-            self._read_node(child, _canonical_label(child))
-            for child in self.aug.match(exact + "/*")
-            if not _is_formatting(child)
-        )
+    def _read_node(self, path, *, include_formatting):
         return TreeNode(
-            label=label,
-            value=_normalized_value(self.aug.get(exact)),
-            children=children,
+            label=_canonical_label(path),
+            value=_normalized_value(self.aug.get(path)),
+            children=tuple(
+                self._read_node(child, include_formatting=include_formatting)
+                for child in self.aug.match(path + "/*")
+                if include_formatting or not _is_formatting(child)
+            ),
         )
 
     def _configuration(self, base):
-        return encode_config(self._read_node(base))
+        matches = self.aug.match(base)
+        if len(matches) > 1:
+            raise AugeasResourceError(f"Augeas path {base!r} unexpectedly became ambiguous")
+        if not matches:
+            return {}
+        return encode_config(self._read_node(matches[0], include_formatting=False))
 
     def _fingerprint(self):
-        def visit(path):
-            return (
-                _canonical_label(path),
-                _normalized_value(self.aug.get(path)),
-                tuple(visit(child) for child in self.aug.match(path + "/*")),
-            )
-
-        matches = self.aug.match(self.tree_path)
-        return tuple(visit(path) for path in matches)
+        return tuple(
+            self._read_node(path, include_formatting=True)
+            for path in self.aug.match(self.tree_path)
+        )
 
     def _set_entries(self, base, entries, base_exists):
         boundary = base if base_exists else None
@@ -696,18 +688,20 @@ class AugeasResource:
         if state == "gathered":
             return {"changed": False, "gathered": before}
 
+        entries = flatten_config(config) if config is not None else []
+        if state == "replaced" and _configurations_match(before, config, entries):
+            return {"changed": False, "before": before, "after": before}
+
         before_fingerprint = self._fingerprint()
         base_removed = False
-        entries = flatten_config(config) if config is not None else []
         if state == "merged":
             self._set_entries(base, entries, base_exists)
         elif state == "replaced":
-            if not _configurations_match(before, config):
-                if base_exists:
-                    self._clear_children(base)
-                    if all(relative for relative, _value in entries):
-                        self._clear_value(base)
-                self._set_entries(base, entries, base_exists)
+            if base_exists:
+                self._clear_children(base)
+                if all(relative for relative, _value in entries):
+                    self._clear_value(base)
+            self._set_entries(base, entries, base_exists)
         elif state == "deleted":
             if config is not None:
                 matches = []
