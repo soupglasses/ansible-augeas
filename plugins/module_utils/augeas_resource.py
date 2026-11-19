@@ -362,13 +362,12 @@ def _encode_node(node, root=False):
             return {} if node.value is None else {"$value": node.value}
         return node.value
 
-    numeric = _is_numeric_sequence(node.children)
-    if numeric and node.value is None:
+    if node.value is None and _is_numeric_sequence(node.children):
         return [_encode_node(child) for child in node.children]
 
     encoded = {} if node.value is None else {"$value": node.value}
     labels = [child.label for child in node.children]
-    if not numeric and len(labels) != len(set(labels)):
+    if len(labels) != len(set(labels)):
         encoded["$children"] = [_encoded_child(child) for child in node.children]
     else:
         for child in node.children:

@@ -191,6 +191,15 @@ def test_codec_retains_semantic_xml_hash_labels():
     ]
 
 
+def test_codec_preserves_repeated_numeric_children_under_a_node_with_a_value():
+    tree = TreeNode("", "parent", (TreeNode("1", "first", ()), TreeNode("1", "second", ())))
+
+    encoded = encode_config(tree)
+
+    assert encoded == {"$value": "parent", "$children": [{"1": "first"}, {"1": "second"}]}
+    assert flatten_config(encoded) == [("", "parent"), ("1[1]", "first"), ("1[2]", "second")]
+
+
 def test_codec_treats_sparse_numeric_labels_as_positional_children():
     tree = TreeNode(
         label="",

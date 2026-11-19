@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - Preserve repeated numeric children when gathering an Augeas node that also has a value.
