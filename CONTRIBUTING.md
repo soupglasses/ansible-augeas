@@ -19,6 +19,18 @@ ansible-test integration augeas
 ansible-galaxy collection build
 ```
 
+CI runs these checks and the changelog check through [hk](https://hk.jdx.dev)
+with the tools pinned in `mise.toml`. To run them on the staged files before
+each commit, from any checkout location, install Augeas and its lenses, then
+the tools and the Git hook:
+
+```shell
+mise install
+hk install --mise
+```
+
+Run `hk check --all` to check the whole collection as CI does.
+
 The unit and integration suites require `python-augeas`, libaugeas, and the
 stock Augeas lenses. Missing runtime dependencies are test failures, not
 skips. The nginx validation block is optional on a development machine; CI

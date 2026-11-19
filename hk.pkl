@@ -1,0 +1,35 @@
+amends "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Config.pkl"
+
+// ansible-test only runs inside an ansible_collections/<namespace>/<name>
+// directory, so each step checks out the staged files into one.
+local function inCollection(command: String): String = """
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    git checkout-index --all --prefix="$tmp/ansible_collections/soupglasses/augeas/"
+    cd "$tmp/ansible_collections/soupglasses/augeas"
+    \(command)
+    """
+
+steps {
+    ["sanity"] {
+        check = inCollection("ansible-test sanity --venv --requirements")
+    }
+    ["changelog"] {
+        check = inCollection("""
+            antsibull-changelog lint
+            antsibull-changelog lint-changelog-yaml changelogs/changelog.yaml
+            cp CHANGELOG.rst "$tmp/CHANGELOG.rst"
+            antsibull-changelog generate
+            diff -u "$tmp/CHANGELOG.rst" CHANGELOG.rst
+            """)
+    }
+    ["units"] {
+        check = inCollection("ansible-test units --target-python default")
+    }
+    ["integration"] {
+        check = inCollection("ansible-test integration --local augeas")
+    }
+    ["build"] {
+        check = inCollection("ansible-galaxy collection build --output-path \"$tmp/dist\"")
+    }
+}
