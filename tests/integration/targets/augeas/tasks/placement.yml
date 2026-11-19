@@ -1,0 +1,102 @@
+---
+- name: Create three resolvers with Quad9 last
+  ansible.builtin.copy:
+    dest: "{{ augeas_test_tmp.path }}/resolv.conf"
+    content: |
+      nameserver 1.1.1.1
+      nameserver 8.8.8.8
+      nameserver 9.9.9.9
+    mode: "0600"
+
+- name: Preview, apply and repeat the resolver placement
+  soupglasses.augeas.augeas:
+    file: "{{ augeas_test_tmp.path }}/resolv.conf"
+    lens: Resolv
+    path: 'nameserver[. = "9.9.9.9"]'
+    before: nameserver
+    config:
+      $value: "9.9.9.9"
+  check_mode: "{{ item == 'preview' }}"
+  diff: true
+  loop: [preview, apply, repeat]
+  register: resolver_placement
+
+- name: Read the resulting resolver file
+  ansible.builtin.slurp:
+    src: "{{ augeas_test_tmp.path }}/resolv.conf"
+  register: resolver_file
+
+- name: Verify placement, preview accuracy and idempotence
+  ansible.builtin.assert:
+    that:
+      - resolver_placement.results | map(attribute='changed') | list == [true, true, false]
+      - resolver_placement.results[0].diff == resolver_placement.results[1].diff
+      - resolver_placement.results[0].diff[-1].before.position == 3
+      - resolver_placement.results[0].diff[-1].after.position == 1
+      - >-
+        (resolver_file.content | b64decode).splitlines() ==
+        ['nameserver 9.9.9.9', 'nameserver 1.1.1.1', 'nameserver 8.8.8.8']
+
+- name: Create a banner with a handwritten comment
+  ansible.builtin.copy:
+    dest: "{{ augeas_test_tmp.path }}/banner.conf"
+    content: |
+      Port 22
+      # Written by the administrator
+      Banner /etc/issue.net
+    mode: "0600"
+
+- name: Place the role's comment immediately above the banner
+  soupglasses.augeas.augeas:
+    file: "{{ augeas_test_tmp.path }}/banner.conf"
+    lens: Sshd
+    path: '#comment[. =~ regexp("access-policy: .*")]'
+    immediately_before: Banner
+    config:
+      $value: "access-policy: Display the legal notice before login."
+  loop: [apply, repeat]
+  register: banner_comment
+
+- name: Read the banner configuration
+  ansible.builtin.slurp:
+    src: "{{ augeas_test_tmp.path }}/banner.conf"
+  register: banner_file
+
+- name: Verify the handwritten comment survives and the role's comment converges
+  ansible.builtin.assert:
+    that:
+      - banner_comment.results | map(attribute='changed') | list == [true, false]
+      - >-
+        (banner_file.content | b64decode).splitlines() ==
+        ['Port 22', '# Written by the administrator',
+         '# access-policy: Display the legal notice before login.', 'Banner /etc/issue.net']
+
+- name: Preview, apply and repeat a chain of resolver constraints
+  soupglasses.augeas.augeas:
+    file: "{{ augeas_test_tmp.path }}/resolv.conf"
+    lens: Resolv
+    resources:
+      - path: 'nameserver[. = "1.1.1.1"]'
+        before: 'nameserver[. = "9.9.9.9"]'
+      - path: 'nameserver[. = "8.8.8.8"]'
+        before: 'nameserver[. = "1.1.1.1"]'
+  check_mode: "{{ item == 'preview' }}"
+  diff: true
+  loop: [preview, apply, repeat]
+  register: resolver_batch
+
+- name: Read the resolver chain
+  ansible.builtin.slurp:
+    src: "{{ augeas_test_tmp.path }}/resolv.conf"
+  register: resolver_batch_file
+
+- name: Verify the file-wide diff and final resolver order
+  ansible.builtin.assert:
+    that:
+      - resolver_batch.results | map(attribute='changed') | list == [true, true, false]
+      - resolver_batch.results[0].diff == resolver_batch.results[1].diff
+      - resolver_batch.results[1].diff | length == 1
+      - resolver_batch.results[1].diff[0].before != resolver_batch.results[1].diff[0].after
+      - >-
+        (resolver_batch_file.content | b64decode).splitlines() ==
+        ['nameserver 8.8.8.8', 'nameserver 1.1.1.1', 'nameserver 9.9.9.9']
