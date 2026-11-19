@@ -1,0 +1,6 @@
+[tools]
+python = "{{ get_env(name='PYTHON_VERSION', default='3.13') }}"
+uv = "0.13.9"
+ansible-core = { version = "{{ get_env(name='ANSIBLE_CORE_VERSION', default='2.21') }}", with = ["python-augeas==1.2.0", "mock", "pytest", "pytest-mock", "pytest-xdist"] }
+"pypi:antsibull-changelog" = "0.35"
+hk = { version = "2.13.0", workflow = "release.yml" }
